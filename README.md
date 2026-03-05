@@ -1307,3 +1307,11 @@ All output includes timestamps for debugging timing-related issues.
 ---
 
 > **NoClaw** — Surgical precision, never destructive. 🦅
+
+---
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=vicsanity623/NoClaw&type=date&theme=dark" />
+  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=vicsanity623/NoClaw&type=date" />
+  <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=vicsanity623/NoClaw&type=date" />
+</picture>
