@@ -12,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import threading
 from autoreviewer import AutoReviewer
 from pathlib import Path
+from typing import Any
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(message)s")
 logger = logging.getLogger(__name__)
@@ -22,7 +23,7 @@ class TargetedReviewer(AutoReviewer):
         super().__init__(target_dir)
         self.forced_target_file = target_file
 
-    def scan_directory(self):
+    def scan_directory(self) -> list[str]:
         if os.path.exists(self.forced_target_file):
             return [self.forced_target_file]
         return []
@@ -75,6 +76,51 @@ class EntranceController:
         print(f"📂 FILE: {obs_path}")
         print("=" * 60 + "\n")
 
+    def reboot_noclaw(self):
+        """Standard Hot-Reboot: Replaces the current process with a fresh one."""
+        logger.warning("🔄 SELF-EVOLUTION COMPLETE: Rebooting fresh NoClaw engine...")
+        # Ensure we pass the same arguments (like the target directory)
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+
+    def trigger_production_build(self):
+        """Advanced Build: Compiles NoClaw into a DMG and replaces the system version."""
+        build_script = os.path.join(self.target_dir, "build_pyinstaller_multiOS.py")
+        if not os.path.exists(build_script):
+            logger.error("❌ Build script not found. Skipping production deploy.")
+            return
+
+        logger.info("🛠️ STARTING PRODUCTION BUILD... This will take 2-3 minutes.")
+        try:
+            # 1. Run the PyInstaller build
+            subprocess.run([sys.executable, build_script], check=True)
+
+            # 2. Define Mac paths
+            app_name = "NoClaw.app"
+            dist_path = os.path.join(self.target_dir, "dist", app_name)
+            applications_path = f"/Applications/{app_name}"
+
+            if sys.platform == "darwin" and os.path.exists(dist_path):
+                logger.warning(
+                    f"🚀 FORGE COMPLETE: Deploying new version to {applications_path}..."
+                )
+
+                # Delete old version and copy new one
+                if os.path.exists(applications_path):
+                    shutil.rmtree(applications_path)
+                shutil.copytree(dist_path, applications_path)
+
+                # --- THE PASSING OF THE TORCH ---
+                # Launch new app and pass the CURRENT target directory as an argument.
+                subprocess.Popen(
+                    ["open", "-a", applications_path, "--args", self.target_dir]
+                )
+
+                logger.info("🔥 NEW VERSION RELAYED. ENGINE SHUTTING DOWN.")
+                sys.exit(0)
+
+        except Exception as e:
+            logger.error(f"❌ Production Build Failed: {e}")
+
     def load_ledger(self):
         if os.path.exists(self.symbols_path):
             try:
@@ -99,28 +145,60 @@ class EntranceController:
         )
         if not os.path.exists(self.analysis_path):
             self.build_initial_analysis()
+
         iteration = 1
         while True:
             self.current_iteration = iteration
             logger.info(
                 f"\n\n{'=' * 70}\n🎯 TARGETED PIPELINE LOOP (Iteration {iteration})\n{'=' * 70}"
             )
+
+            # Track if NoClaw's own logic was upgraded this turn
+            self_evolved = False
+
             try:
                 self.execute_targeted_iteration(iteration)
+
+                # --- SELF-EVOLUTION DETECTION ---
+                history_text = self._read_file(self.history_path)
+                engine_files = [
+                    "autoreviewer.py",
+                    "core_utils.py",
+                    "prompts_and_memory.py",
+                    "entrance.py",
+                ]
+
+                # Check the very last entry in HISTORY.md
+                if history_text:
+                    last_entry = history_text.split("##")[-1]
+                    if any(f"`{ef}`" in last_entry for ef in engine_files):
+                        self_evolved = True
+                # --------------------------------
+
             except KeyboardInterrupt:
                 logger.info("\nExiting Entrance Controller...")
                 break
             except Exception as e:
                 logger.error(f"Unexpected error in master loop: {e}", exc_info=True)
+
+            # --- AUTOMATED ENGINE RELOAD ---
+            if self_evolved:
+                if getattr(sys, "frozen", False):
+                    logger.warning(
+                        "💎 COMPILED ENGINE EVOLVED: Initiating full Forge Build."
+                    )
+                    self.trigger_production_build()
+                else:
+                    logger.warning("🐍 SCRIPT ENGINE EVOLVED: Initiating Hot-Reboot.")
+                    self.reboot_noclaw()
+            # -------------------------------
+
             iteration += 1
             logger.info("Iteration complete. Waiting for system cooldown...")
             time.sleep(120)
 
     def execute_targeted_iteration(self, iteration: int):
-        # 1. Create a workspace-wide backup for a standard undo-point
         backup_state = self.llm_engine.backup_workspace()
-
-        # 2. Determine the iteration target
         target_diff = ""
         if self.cascade_queue:
             target_rel_path = self.cascade_queue.pop(0)
@@ -137,7 +215,6 @@ class EntranceController:
             return
 
         # --- RECURSIVE SAFETY PATCH (EXTERNAL STORAGE) ---
-        # If NoClaw targets its own engine, we save a backup OUTSIDE the scan directory
         engine_files = [
             "autoreviewer.py",
             "core_utils.py",
@@ -147,7 +224,6 @@ class EntranceController:
         if any(f in target_rel_path for f in engine_files):
             timestamp = time.strftime("%Y%m%d_%H%M%S")
             project_name = os.path.basename(self.target_dir)
-            # Path: ~/Documents/NoClaw_Backups/[ProjectName]/safety_pod_v[Iteration]_[Time]
             base_backup_path = (
                 Path.home() / "Documents" / "NoClaw_Backups" / project_name
             )
@@ -164,11 +240,8 @@ class EntranceController:
                         shutil.copy(src, str(pod_path))
             except Exception as e:
                 logger.error(f"Failed to create external safety pod: {e}")
-        # -------------------------------------------------
 
         target_abs_path = os.path.join(self.target_dir, target_rel_path)
-
-        # 3. Inject Context into the Engineer
         self.llm_engine.session_context = []
         if is_cascade and target_diff:
             msg = f"CRITICAL SYMBOLIC RIPPLE: This file depends on code that was just modified. Ensure this file is updated to support these changes:\n\n### DEPDENDENCY CHANGE DIFF:\n{target_diff}"
@@ -179,13 +252,11 @@ class EntranceController:
             with open(target_abs_path, "r", encoding="utf-8", errors="ignore") as f:
                 old_content = f.read()
 
-        # 4. Run the Coder Pipeline
         reviewer = TargetedReviewer(self.target_dir, target_abs_path)
         reviewer.session_context = self.llm_engine.session_context[:]
         reviewer.run_pipeline(iteration)
 
-        # After the pipeline, transfer the reviewer's session context back to the main engine
-        # for intent detection and further processing.
+        # Sync intent context back to main engine
         self.llm_engine.session_context = reviewer.session_context[:]
 
         new_content = ""
@@ -193,8 +264,7 @@ class EntranceController:
             with open(target_abs_path, "r", encoding="utf-8", errors="ignore") as f:
                 new_content = f.read()
 
-        # 5. Brain-to-Queue Intent Detection
-        # Listen to the AI's thoughts to see if it mentioned other files that need updates
+        # Brain-to-Queue Intent Detection
         all_text_context = " ".join(self.llm_engine.session_context).lower()
         for other_file in self.llm_engine.scan_directory():
             rel_other = os.path.relpath(other_file, self.target_dir)
@@ -205,7 +275,6 @@ class EntranceController:
                     )
                     self.cascade_queue.append(rel_other)
 
-        # 6. Post-Process: Update Metadata and Brain
         logger.info(f"🔄 Refreshing metadata for `{target_rel_path}`...")
         self.update_analysis_for_single_file(target_abs_path, target_rel_path)
         self.update_ledger_for_file(target_rel_path, new_content)
@@ -216,7 +285,7 @@ class EntranceController:
             )
             self.append_to_history(target_rel_path, old_content, new_content)
 
-            # FIXED: Use keepends=True for Mypy compliance
+            # FIXED: Used keepends=True for Mypy compatibility
             current_diff = "".join(
                 difflib.unified_diff(
                     old_content.splitlines(keepends=True),
@@ -224,7 +293,6 @@ class EntranceController:
                 )
             )
 
-            # Detect Symbolic Ripples (variable dependencies)
             ripples = self.detect_symbolic_ripples(
                 old_content, new_content, target_rel_path
             )
@@ -237,7 +305,6 @@ class EntranceController:
                         self.cascade_queue.append(r)
                         self.cascade_diffs[r] = current_diff
 
-            # 7. Final Verification and Heal
             logger.info("\n" + "=" * 20 + " FINAL VERIFICATION " + "=" * 20)
             if not self._run_final_verification_and_heal(backup_state):
                 logger.error(
@@ -271,8 +338,7 @@ class EntranceController:
             else:
                 python_cmd = sys.executable
 
-            # --- RECURSIVE PORT SAFETY ---
-            # If we are testing NoClaw itself, disable the dashboard in the child process
+            # RECURSIVE PORT SAFETY
             cmd = [python_cmd, entry_file]
             if os.path.basename(entry_file) == "entrance.py":
                 cmd.append("--no-dashboard")
@@ -331,7 +397,9 @@ class EntranceController:
         self.llm_engine.restore_workspace(backup_state)
         return False
 
-    def detect_symbolic_ripples(self, old, new, source_file):
+    def detect_symbolic_ripples(
+        self, old: str, new: str, source_file: str
+    ) -> list[str]:
         diff = list(difflib.unified_diff(old.splitlines(), new.splitlines()))
         changed_text = "\n".join(
             [line for line in diff if line.startswith("+") or line.startswith("-")]
@@ -352,7 +420,6 @@ class EntranceController:
         history_lines = history.strip().split("\n")
         for line in reversed(history_lines):
             if line.startswith("## "):
-                # Extraction logic for `filename`
                 match = re.search(r"`([^`]+)`", line)
                 if match:
                     last_file = match.group(1)
@@ -432,7 +499,7 @@ Reply ONLY with the relative file path.
         with open(self.analysis_path, "w", encoding="utf-8") as f:
             f.write(updated)
 
-    def update_ledger_for_file(self, rel_path, code):
+    def update_ledger_for_file(self, rel_path: str, code: str):
         ext = os.path.splitext(rel_path)[1]
         if ext == ".py":
             try:
@@ -553,7 +620,9 @@ Reply ONLY with the relative file path.
         selectors = re.findall(r"(\.[a-zA-Z0-9_-]+)\s*\{", code)
         return self._format_dropdowns([], [], selectors[:50], [])
 
-    def _format_dropdowns(self, imp, cls, fn, cnst):
+    def _format_dropdowns(
+        self, imp: list[str], cls: list[str], fn: list[str], cnst: list[str]
+    ) -> str:
         res = ""
         if imp:
             res += f"<details><summary>Imports ({len(imp)})</summary>{'<br>'.join(sorted(imp))}</details>\n"
@@ -577,25 +646,26 @@ Reply ONLY with the relative file path.
         )
         if not diff_lines:
             return
-        if len(diff_lines) > 20:
-            summary_diff = (
-                "".join(diff_lines[:5])
-                + "\n... [TRUNCATED FOR MEMORY] ...\n"
-                + "".join(diff_lines[-5:])
-            )
-        else:
-            summary_diff = "".join(diff_lines)
+        summary_diff = (
+            "".join(diff_lines[:5])
+            + "\n... [TRUNCATED] ...\n"
+            + "".join(diff_lines[-5:])
+            if len(diff_lines) > 20
+            else "".join(diff_lines)
+        )
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
         with open(self.history_path, "a", encoding="utf-8") as f:
-            f.write(f"\n## {timestamp} - `{rel_path}`\n")
-            f.write("```diff\n")
-            f.write(summary_diff)
-            f.write("\n```\n---\n")
+            f.write(
+                f"\n## {timestamp} - `{rel_path}`\n```diff\n{summary_diff}\n```\n---\n"
+            )
 
-    def _read_file(self, f):
+    def _read_file(self, f: str) -> str:
         if os.path.exists(f):
-            with open(f, "r", encoding="utf-8", errors="ignore") as f:
-                return f.read()
+            try:
+                with open(f, "r", encoding="utf-8", errors="ignore") as f_obj:
+                    return f_obj.read()
+            except Exception:
+                return ""
         return ""
 
 
@@ -621,55 +691,31 @@ OBSERVER_HTML = """
 </head>
 <body>
     <h1 class="glow">NOCLAW_OS // OBSERVER_DASHBOARD</h1>
-    
     <div class="stat-bar border card">
         <div>ITERATION: <span id="iteration" class="glow">--</span></div>
         <div>LEDGER: <span id="ledger">--</span> symbols</div>
         <div>STATUS: <span id="status" style="color: #fff">SCANNING...</span></div>
     </div>
-
-    <div class="border card">
-        <div class="label">SYMBOLIC CASCADE QUEUE:</div>
-        <div id="queue">--</div>
-    </div>
-
+    <div class="border card"><div class="label">SYMBOLIC CASCADE QUEUE:</div><div id="queue">--</div></div>
     <div class="grid">
-        <div class="border card">
-            <div class="label">LIVE MEMORY (MEMORY.md):</div>
-            <div id="memory" class="data">--</div>
-        </div>
-        <div class="border card">
-            <div class="label">RECENT HISTORY (HISTORY.md):</div>
-            <div id="history" class="data">--</div>
-        </div>
+        <div class="border card"><div class="label">LIVE MEMORY (MEMORY.md):</div><div id="memory" class="data">--</div></div>
+        <div class="border card"><div class="label">RECENT HISTORY (HISTORY.md):</div><div id="history" class="data">--</div></div>
     </div>
-
-    <div class="border card">
-        <div class="label">LATEST ARCHITECTURAL ANALYSIS:</div>
-        <div id="analysis" class="data">--</div>
-    </div>
-
+    <div class="border card"><div class="label">LATEST ARCHITECTURAL ANALYSIS:</div><div id="analysis" class="data">--</div></div>
     <script>
         async function updateStats() {
             try {
                 const response = await fetch('/api/status');
                 const data = await response.json();
-                
                 document.getElementById('iteration').innerText = data.iteration;
                 document.getElementById('ledger').innerText = data.ledger_stats.definitions;
                 document.getElementById('memory').innerText = data.memory || "Initializing brain...";
                 document.getElementById('history').innerText = data.history || "No history recorded yet.";
                 document.getElementById('analysis').innerText = data.analysis || "Parsing directory structure...";
-                
                 const queueDiv = document.getElementById('queue');
-                queueDiv.innerHTML = data.cascade_queue.length > 0 
-                    ? data.cascade_queue.map(f => `<span class='queue-item'>${f}</span>`).join('')
-                    : "IDLE // NO PENDING CASCADES";
-                
+                queueDiv.innerHTML = data.cascade_queue.length > 0 ? data.cascade_queue.map(f => `<span class='queue-item'>${f}</span>`).join('') : "IDLE // NO PENDING CASCADES";
                 document.getElementById('status').innerText = data.cascade_queue.length > 0 ? "EVOLVING" : "READY";
-            } catch (e) {
-                document.getElementById('status').innerText = "OFFLINE";
-            }
+            } catch (e) { document.getElementById('status').innerText = "OFFLINE"; }
         }
         setInterval(updateStats, 3000);
         updateStats();
@@ -688,7 +734,6 @@ class ObserverHandler(BaseHTTPRequestHandler):
             self.send_header("Content-type", "application/json")
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
-
             status = {
                 "iteration": getattr(self.controller, "current_iteration", 1),
                 "cascade_queue": self.controller.cascade_queue,
@@ -705,18 +750,16 @@ class ObserverHandler(BaseHTTPRequestHandler):
                 ],
             }
             self.wfile.write(json.dumps(status).encode())
-
         elif self.path == "/" or self.path == "/observer.html":
             self.send_response(200)
             self.send_header("Content-type", "text/html")
             self.end_headers()
-            # Serve the generated HTML
             self.wfile.write(OBSERVER_HTML.encode())
         else:
             self.send_response(404)
             self.end_headers()
 
-    def log_message(self, format, *args):
+    def log_message(self, format: str, *args: Any) -> None:
         return
 
 

@@ -1,5 +1,6 @@
 import platform
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -7,11 +8,16 @@ def main():
     os_name = platform.system().lower()
     project_root = Path(__file__).parent.absolute()
 
-    print(f"🚀 Building NoClaw for {os_name}...")
+    # --- Configuration ---
+    VERSION = "0.1.3-beta5"
+    APP_NAME = "NoClaw"
+
+    print(f"🚀 Building {APP_NAME} v{VERSION} for {os_name}...")
 
     # Base configuration for all platforms
+    # We include all new mixins and external dependencies
     common = [
-        "--name=NoClaw",
+        f"--name={APP_NAME}",
         "--clean",
         "--noconfirm",
         "--hidden-import=autoreviewer",
@@ -19,6 +25,8 @@ def main():
         "--hidden-import=prompts_and_memory",
         "--hidden-import=requests",
         "--hidden-import=ollama",
+        "--hidden-import=textwrap",
+        "--hidden-import=pathlib",
         "--collect-all=ruff",
         "--collect-all=mypy",
         "--collect-all=ollama",
@@ -26,7 +34,8 @@ def main():
     ]
 
     if os_name == "darwin":
-        # macOS: Create a .app bundle (--windowed) for Spotlight/Icon support
+        # macOS: Create a .app bundle for Spotlight/Icon support
+        # We use --windowed so it doesn't leave a stray terminal window open
         cmd = (
             ["pyinstaller"]
             + common
@@ -35,48 +44,51 @@ def main():
                 "--icon=no-claw.icns",
             ]
         )
-        dist_output = project_root / "dist" / "NoClaw.app"
+        dist_output = project_root / "dist" / f"{APP_NAME}.app"
 
     elif os_name == "windows":
-        # Windows: Create a single .exe
+        # Windows: Create a single .exe with console for logging visibility
         cmd = (
             ["pyinstaller"]
             + common
             + [
                 "--onefile",
                 "--console",
-                "--icon=no-claw.ico",  # Usually .ico for Windows
+                "--icon=no-claw.ico",
             ]
         )
-        dist_output = project_root / "dist" / "NoClaw.exe"
+        dist_output = project_root / "dist" / f"{APP_NAME}.exe"
 
     else:
         # Linux: Create a single binary
         cmd = ["pyinstaller"] + common + ["--onefile", "--console"]
-        dist_output = project_root / "dist" / "NoClaw"
+        dist_output = project_root / "dist" / APP_NAME
 
     # --- Step 1: Run PyInstaller ---
-    print("🛠️  Running PyInstaller...")
-    subprocess.run(cmd, check=True)
-    print(f"\n✅ PyInstaller Build complete: {dist_output}")
+    print(f"🛠️  Running PyInstaller for {APP_NAME}...")
+    try:
+        subprocess.run(cmd, check=True)
+        print(f"\n✅ PyInstaller Build complete: {dist_output}")
+    except subprocess.CalledProcessError as e:
+        print(f"\n❌ PyInstaller Build failed: {e}")
+        sys.exit(1)
 
     # --- Step 2: macOS Specific DMG Packaging ---
     if os_name == "darwin":
         print("\n📦 Starting DMG creation...")
 
-        dmg_name = "NoClaw-v0.1.3-beta4.dmg"
+        dmg_name = f"{APP_NAME}-v{VERSION}.dmg"
         dmg_path = project_root / dmg_name
 
         # Remove old DMG if it exists
         if dmg_path.exists():
             dmg_path.unlink()
 
-        # create-dmg command
-        # We point directly to the NoClaw.app bundle
+        # create-dmg command configuration
         dmg_cmd = [
             "create-dmg",
             "--volname",
-            "NoClaw Installer",
+            f"{APP_NAME} Installer",
             "--app-drop-link",
             "400",
             "120",
@@ -86,7 +98,7 @@ def main():
             "--icon-size",
             "100",
             "--icon",
-            "NoClaw.app",
+            f"{APP_NAME}.app",
             "150",
             "120",
             str(dmg_path),
@@ -97,10 +109,10 @@ def main():
             subprocess.run(dmg_cmd, check=True)
             print(f"\n🔥 SUCCESS! DMG created at: {dmg_path}")
             print(
-                "You can now distribute the DMG. Users can drag NoClaw to Applications."
+                f"You can now distribute the DMG. Users can drag {APP_NAME} to Applications."
             )
         except FileNotFoundError:
-            print("\n❌ Error: 'create-dmg' not found.")
+            print("\n❌ Error: 'create-dmg' tool not found.")
             print("Fix: brew install create-dmg")
         except subprocess.CalledProcessError as e:
             print(f"\n❌ Error creating DMG: {e}")
