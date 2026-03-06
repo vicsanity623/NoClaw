@@ -329,12 +329,23 @@ class EntranceController:
                 f"🚀 Launching `{rel_entry_file}` for test... (Attempt {attempt + 1}/3)"
             )
 
-            if getattr(sys, "frozen", False):
+            # --- SMARTER PYTHON DETECTION ---
+            # 1. Prioritize project-specific virtual environments
+            venv_python = os.path.join(self.target_dir, "build_env", "bin", "python3")
+            if not os.path.exists(venv_python):
+                venv_python = os.path.join(self.target_dir, "venv", "bin", "python3")
+
+            if os.path.exists(venv_python):
+                python_cmd = venv_python
+            elif getattr(sys, "frozen", False):
+                # 2. Fallback to system Python if running as DMG and no venv found
                 python_cmd = (
                     shutil.which("python3") or shutil.which("python") or "python3"
                 )
             else:
+                # 3. Use current interpreter if running as script
                 python_cmd = sys.executable
+            # --------------------------------
 
             # RECURSIVE PORT SAFETY
             cmd = [python_cmd, entry_file]

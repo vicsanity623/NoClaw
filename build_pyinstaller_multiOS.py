@@ -9,8 +9,8 @@ def main():
     project_root = Path(__file__).parent.absolute()
 
     # --- Configuration ---
-    VERSION = "0.2.1-beta2"
-    APP_NAME = "PyOuroBoros"
+    VERSION = "0.2.1"
+    APP_NAME = "Py-OB"
 
     print(f"🚀 Forging {APP_NAME} v{VERSION} for {os_name}...")
 
@@ -27,9 +27,16 @@ def main():
         "--hidden-import=ollama",
         "--hidden-import=textwrap",
         "--hidden-import=pathlib",
+        "--hidden-import=charset_normalizer",
+        "--hidden-import=chardet",
+        "--copy-metadata=requests",
+        "--copy-metadata=charset-normalizer",
+        "--copy-metadata=chardet",
         "--collect-all=ruff",
         "--collect-all=mypy",
         "--collect-all=ollama",
+        "--collect-all=charset_normalizer",
+        "--collect-all=chardet",
         "pyob_launcher.py",
     ]
 

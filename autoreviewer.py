@@ -531,10 +531,18 @@ class AutoReviewer(CoreUtilsMixin, PromptsAndMemoryMixin):
         if not entry_file:
             return True
 
-        if getattr(sys, "frozen", False):
+        # --- SMARTER PYTHON DETECTION ---
+        venv_python = os.path.join(self.target_dir, "build_env", "bin", "python3")
+        if not os.path.exists(venv_python):
+            venv_python = os.path.join(self.target_dir, "venv", "bin", "python3")
+
+        if os.path.exists(venv_python):
+            python_cmd = venv_python
+        elif getattr(sys, "frozen", False):
             python_cmd = shutil.which("python3") or shutil.which("python") or "python3"
         else:
             python_cmd = sys.executable
+        # --------------------------------
 
         for attempt in range(3):
             logger.info(
@@ -564,11 +572,11 @@ class AutoReviewer(CoreUtilsMixin, PromptsAndMemoryMixin):
                 "NameError:",
                 "AttributeError:",
             ]
-            has_crash = any(kw in stderr for kw in error_keywords) or (
+            has_crash = any(kw in stderr or kw in stdout for kw in error_keywords) or (
                 process.returncode != 0
                 and process.returncode not in (None, 0, 15, -15, 137, -9, 1)
             )
-            if not has_crash and "Traceback" not in stdout:
+            if not has_crash:
                 logger.info("✅ App ran successfully for 10 seconds with no crashes.")
                 return True
             logger.warning(f"⚠️ App crashed or threw runtime errors!\n{stderr}")
@@ -593,12 +601,20 @@ class AutoReviewer(CoreUtilsMixin, PromptsAndMemoryMixin):
                 f"📦 Auto-detected missing dependency: {pkg}. Attempting pip install..."
             )
 
-            if getattr(sys, "frozen", False):
+            # --- SMARTER PYTHON DETECTION ---
+            venv_python = os.path.join(self.target_dir, "build_env", "bin", "python3")
+            if not os.path.exists(venv_python):
+                venv_python = os.path.join(self.target_dir, "venv", "bin", "python3")
+
+            if os.path.exists(venv_python):
+                python_cmd = venv_python
+            elif getattr(sys, "frozen", False):
                 python_cmd = (
                     shutil.which("python3") or shutil.which("python") or "python3"
                 )
             else:
                 python_cmd = sys.executable
+            # --------------------------------
 
             try:
                 subprocess.run(
@@ -624,11 +640,12 @@ class AutoReviewer(CoreUtilsMixin, PromptsAndMemoryMixin):
                     capture_output=True,
                 )
                 logger.info(
-                    "✅ Successfully installed {pkg}. System will now retry launch."
+                    f"✅ Successfully installed {pkg}. System will now retry launch."
                 )
                 return
             except subprocess.CalledProcessError as e:
                 logger.error(f"❌ Failed to install {pkg} automatically: {e}")
+
         tb_files = re.findall(r'File "([^"]+)"', logs)
         target_file = entry_file
         for f in reversed(tb_files):
@@ -641,8 +658,8 @@ class AutoReviewer(CoreUtilsMixin, PromptsAndMemoryMixin):
                 target_file = abs_f
                 break
         rel_path = os.path.relpath(target_file, self.target_dir)
-        with open(target_file, "r", encoding="utf-8") as f:
-            code = f.read()
+        with open(target_file, "r", encoding="utf-8") as f_obj:
+            code = f_obj.read()
         if context_of_change:
             logger.info(
                 f"Applying CONTEXT-AWARE fix for runtime crash in `{rel_path}`..."
@@ -672,8 +689,8 @@ class AutoReviewer(CoreUtilsMixin, PromptsAndMemoryMixin):
             prompt, code, require_edit=True, target_filepath=target_file
         )
         if new_code != code:
-            with open(target_file, "w", encoding="utf-8") as f:
-                f.write(new_code)
+            with open(target_file, "w", encoding="utf-8") as f_out:
+                f_out.write(new_code)
             logger.info(f"✅ AI Auto-patched runtime crash in `{rel_path}`")
             self.session_context.append(
                 f"Auto-fixed runtime crash in `{rel_path}`: {explanation}"
@@ -745,8 +762,7 @@ class AutoReviewer(CoreUtilsMixin, PromptsAndMemoryMixin):
             dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
 
             for file in files:
-                # 1. Ignore specific files listed in IGNORE_FILES
-                if file in IGNORE_FILES or file == os.path.basename(__file__):
+                if file in IGNORE_FILES:
                     continue
 
                 # 2. Ignore PyInstaller and DMG artifacts by extension

@@ -1,6 +1,20 @@
 import sys
 import os
 import json
+
+try:
+    import charset_normalizer
+    import requests
+
+    sys.modules["requests.packages.charset_normalizer"] = charset_normalizer
+except ImportError:
+    try:
+        import chardet
+        import requests
+
+        sys.modules["requests.packages.chardet"] = chardet
+    except ImportError:
+        pass
 import subprocess
 from pathlib import Path
 

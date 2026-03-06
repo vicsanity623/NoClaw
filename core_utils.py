@@ -1,3 +1,12 @@
+try:
+    import charset_normalizer
+except ImportError:
+    pass
+try:
+    import chardet
+except ImportError:
+    pass
+
 import os
 import re
 import ast
@@ -57,7 +66,6 @@ IGNORE_DIRS = {
 
 IGNORE_FILES = {
     "package-lock.json",
-    "pyob_launcher.py",
     "PEER_REVIEW.md",
     "FEATURE.md",
     "FAILED_PEER_REVIEW.md",

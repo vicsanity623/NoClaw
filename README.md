@@ -7,7 +7,7 @@
 
 ### The Self-Healing, Symbolic Autonomous Code Architect
 
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Gemini](https://img.shields.io/badge/Gemini-2.5_Flash-8E75B2?style=for-the-badge&logo=google-gemini&logoColor=white)](https://ai.google.dev/)
 [![Ollama](https://img.shields.io/badge/Ollama-Local_LLM-000000?style=for-the-badge&logo=ollama&logoColor=white)](https://ollama.ai)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)]()
@@ -40,26 +40,29 @@ PYOB is an **autonomous code review and feature engineering system** that contin
 ## ✨ Core Features
 
 ### 🔬 Surgical XML-Based Code Edits
-Every proposed change uses exact `<SEARCH>/<REPLACE>` blocks matched against the source. If even one anchor fails to align, the **entire patch is rejected** and auto-regenerated — never leaving partial, broken edits.
+Every proposed change uses exact `<SEARCH>/<REPLACE>` blocks matched against the source. PyOB utilizes a **Multi-Strategy Matcher** (Exact, Stripped, Normalized, Regex Fuzzy, and Robust Line-Matching). If any block fails to align, the entire patch is rejected and auto-regenerated to prevent partial, broken edits.
 
 ### 🔗 Symbolic Ripple Engine
-PYOB maintains a live dependency graph (`SYMBOLS.json`). When a function signature changes in `logic.py`, every file that references it is automatically queued for synchronized updates via the **cascade system**.
+PyOB maintains a live dependency graph (`SYMBOLS.json`). When a function signature or constant changes, every file that references that symbol is automatically queued for synchronized updates via the **Symbolic Cascade system**, ensuring cross-file integrity.
 
-### 🛡️ 4-Layer Verification Pipeline
-1. **Atomic XML Matching** — Strict `<SEARCH>` anchor validation
-2. **Syntactic Validation** — `ruff` (Python), `node --check` (JS), brace-balancing (CSS)
-3. **Context-Aware Self-Healing (PIR)** — Feeds the *original goal + error + broken code* back to the LLM
-4. **10-Second Runtime Smoke Test** — Launches your app and monitors for crashes/tracebacks
+### 🛡️ 5-Layer Verification Pipeline
+1. **Atomic XML Matching** — Strict anchor validation with **Smart Indent Alignment**.
+2. **Syntactic Validation** — `ruff` (Python), `node --check` (JS), brace-balancing (CSS).
+3. **Downstream Mypy Checks** — Mandatory workspace-wide type checking after every edit.
+4. **Context-Aware Self-Healing (PIR)** — Feeds the *original goal + error + broken code* back to the AI for automated repair.
+5. **Runtime Smoke Test** — Launches the app for 10 seconds, monitoring `stdout/stderr` for tracebacks.
+
+### 🌀 Recursive Self-Evolution
+PyOB is capable of targeting its own source code. It can refactor its mixins, optimize its engine logic, and add new features to itself.
+- **Recursive Safety Pods**: Before a self-edit, PyOB shelters its working source code in an external backup directory (`~/Documents/PyOuroBoros_Backups`).
+- **Autonomous Forge**: If the compiled DMG version evolves itself, it triggers a background build, replaces the binary in `/Applications`, and reboots.
 
 ### 🤝 Human-in-the-Loop Governance
 Interactive terminal checkpoints at every stage:
-- **`AUGMENT_PROMPT`** — Inject additional instructions into the AI prompt
-- **`EDIT_PROMPT`** — Open the full prompt in your editor for manual refinement
-- **`EDIT_XML`** — Refine the AI's proposed XML edit blocks before application
-- **`EDIT_CODE`** — Polish the AI's proposed code in your terminal editor (Nano/Vim)
-- **`FULL_DIFF`** — View the complete unified diff in a pager before deciding
-- **`REGENERATE`** — Reject the proposal and ask the AI to try again
-- **`SKIP`** — Cancel the current operation entirely
+- **`AUGMENT_PROMPT`** — Inject instructions into the AI's mental process.
+- **`EDIT_CODE` / `EDIT_XML`** — Polish proposed changes in your terminal editor (Nano/Vim).
+- **`FULL_DIFF`** — View the complete unified diff in a pager.
+- **`REGENERATE`** — Force the AI to rethink the implementation.
 
 ### 🔄 Hybrid LLM Backend with Auto-Failover
 - **Primary**: Gemini 2.5 Flash with multi-key rotation and 429-aware cooldowns
@@ -106,17 +109,25 @@ Download the latest pre-built binaries from the **[Releases Page](https://github
 
 Use this method if you wish to modify PyOB or contribute to its development.
 
-#### **1. Environment Setup**
+#### **1. Environment Setup (iMac)**
 ```bash
 # Clone the repository
 git clone https://github.com/vicsanity623/PyOB.git
 cd PyOB
 
-# Install Python dependencies (Python 3.10+ required)
-pip install requests ollama
+brew install python@3.12
 
-# Install linting tools for verification pipeline
-pip install ruff mypy
+# 2. Wipe the old environment
+deactivate 2>/dev/null
+rm -rf build_env
+
+# 3. Create the 3.12 environment
+python3.12 -m venv build_env
+
+# 4. Activate and Install
+source build_env/bin/activate
+pip install --upgrade pip
+pip install ruff mypy requests ollama pyinstaller psutil chardet charset-normalizer types-chardet
 ```
 
 #### **2. Local Model Preparation**
@@ -135,17 +146,13 @@ python PyOB_launcher.py
 
 ### 🎯 Quick Start Workflow
 
-Once launched and configured, PyOB follows this operational flow:
-
-1.  **Project Targeting:** Enter the full path to the project you wish to analyze.
-2.  **Bootstrap:** PyOB generates `ANALYSIS.md` (project map) and `SYMBOLS.json` (dependency graph).
-3.  **Autonomous Loop:** The system targets files based on dependency ripple logic.
-4.  **Interactive Checkpoints:** PyOB will pause for your approval before applying any surgical XML edits.
-    -   Type `FULL_DIFF` to see the proposed changes.
-    -   Type `EDIT_XML` or `EDIT_CODE` to refine the output.
-    -   Hit `ENTER` to commit the patch.
-5.  **Verification:** The system runs the 4-layer pipeline (XML Match → Lint → PIR → Runtime Test) to ensure the code is functional.
-6.  **Persistence:** Your `MEMORY.md` and `HISTORY.md` are updated to maintain context for the next iteration.
+1.  **Targeting:** Provide the path to the project you want PyOB to manage.
+2.  **Dashboard:** Open **`http://localhost:5000`** to watch the "Observer" dashboard in real-time.
+3.  **Approve:** When PyOB proposes a fix or feature, review the diff and hit `ENTER`.
+4.  **Observe:** Watch the **Cascade Queue** trigger as PyOB ripples changes through your files.
+5.  **Self-Evolution:** To have PyOB improve itself, target its own root: `python pyob_launcher.py .`
+6.  **Verification:** The system runs the 4-layer pipeline (XML Match → Lint → PIR → Runtime Test) to ensure the code is functional.
+7.  **Persistence:** Your `MEMORY.md` and `HISTORY.md` are updated to maintain context for the next iteration.
 
 PyOB will:
 1. 🔍 **Bootstrap** — Generate `ANALYSIS.md` (project map) and `SYMBOLS.json` (dependency graph)
@@ -161,6 +168,17 @@ PyOB will:
 ---
 
 ## 🏗️ Architecture
+
+### Modular Engine Design
+PyOB is built using a **Mixin-based architecture** to separate concerns and prevent context bloat:
+
+| Component | File | Role |
+|---|---|---|
+| **Entrance Controller** | `entrance.py` | Master loop, Symbolic targeting, and Recursive Forge management. |
+| **Auto Reviewer** | `autoreviewer.py` | Orchestrates the 6-phase pipeline and feature implementation. |
+| **Core Utilities** | `core_utils.py` | LLM streaming, Smart Python detection, and Cyberpunk Logging. |
+| **Prompts & Memory** | `prompts_and_memory.py` | 8 specialized prompt templates and Transactional Memory logic. |
+| **Structure Parser** | `structure_parser.py` | High-fidelity AST parsing for Python/JS signatures. |
 
 ### System Overview
 
@@ -210,15 +228,6 @@ PyOB will:
 │  └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
-
-### Core Components
-
-| Component | File | Role |
-|---|---|---|
-| **Entrance Controller** | `entrance.py` | Orchestrates the master loop, symbolic targeting, ripple detection, and final verification |
-| **Auto Reviewer** | `autoreviewer.py` | Executes the 6-phase pipeline: scan → analyze → propose → implement → verify → persist |
-| **Core Utilities** | `core_utils.py` | LLM streaming, API key management, XML edit engine, workspace backup/restore |
-| **Prompts & Memory** | `prompts_and_memory.py` | Prompt template management, memory persistence, and context enrichment |
 
 ### Persistent State Files
 
@@ -291,14 +300,14 @@ PyOB automatically skips certain directories and files to avoid self-modificatio
 <details>
 <summary><b>Ignored Directories</b></summary>
 
-`.git`, `autovenv`, `venv`, `.venv`, `code`, `.mypy_cache`, `.ruff_cache`, `patch_test`, `env`, `__pycache__`, `node_modules`, `.vscode`, `.idea`
+`.git`, `autovenv`, `venv`, `.venv`, `code`, `.mypy_cache`, `.ruff_cache`, `patch_test`, `env`, `__pycache__`, `node_modules`, `.vscode`, `.idea`, `other_dir`
 
 </details>
 
 <details>
 <summary><b>Ignored Files</b></summary>
 
-`core_utils.py`, `prompts_and_memory.py`, `autoreviewer.py`, `entrance.py`, all prompt templates (`ALF.md`, `FRE.md`, etc.), `sw.js`, `manifest.json`, `package-lock.json`, `auto.py`
+`core_utils.py`, `prompts_and_memory.py`, `autoreviewer.py`, `entrance.py`, all prompt templates (`ALF.md`, `FRE.md`, etc.), `sw.js`, `manifest.json`, `package-lock.json`, `auto.py`, `any_other_file_to_ignore.filetype`
 
 </details>
 
@@ -338,6 +347,15 @@ The engine detects the base indentation of both the `<SEARCH>` and `<REPLACE>` b
 | **Timeout Protection** | All user prompts have configurable timeouts (default: 220s) with auto-proceed |
 
 ---
+
+## 📺 The Observer Dashboard
+
+PyOB includes a built-in **Real-Time Control Room**. While the engine runs in the terminal, you can monitor the process through a glowing, cyberpunk-themed web interface.
+
+- **Iteration Tracking**: See exactly which turn the engine is on.
+- **Cascade Monitoring**: Watch files enter and exit the symbolic queue.
+- **Live Memory Stream**: Read the engine's updated mental model as it develops.
+- **URL**: `http://localhost:5000` (built automatically on launch).
 
 ## 📖 Full Documentation
 
