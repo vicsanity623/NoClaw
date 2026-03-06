@@ -1308,13 +1308,12 @@ All output includes timestamps for debugging timing-related issues.
 
 > **PyOB** — Surgical precision, never destructive. 🦅
 
+## Star History
 
-<p align="center">
-  <a href="https://star-history.com/#vicsanity623/PyOB&Date">
-    <picture>
-     <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=vicsanity623/PyOB&type=Date&theme=dark" />
-     <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=vicsanity623/PyOB&type=Date" />
-     <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=vicsanity623/PyOB&type=Date" />
-    </picture>
-  </a>
-</p>
+<a href="https://www.star-history.com/?repos=vicsanity623%2FPyOB&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=vicsanity623/PyOB&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=vicsanity623/PyOB&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=vicsanity623/PyOB&type=date&legend=top-left" />
+ </picture>
+</a>
