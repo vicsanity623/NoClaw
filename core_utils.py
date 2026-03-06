@@ -11,6 +11,8 @@ import requests
 import select
 import tty
 import termios
+import shutil
+import textwrap
 
 try:
     import ollama
@@ -62,8 +64,49 @@ IGNORE_FILES = {
 }
 SUPPORTED_EXTENSIONS = {".py", ".js", ".ts", ".html", ".css", ".json", ".sh"}
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(message)s")
-logger = logging.getLogger(__name__)
+
+# --- Dynamic Cyberpunk Logging Configuration ---
+class CyberpunkFormatter(logging.Formatter):
+    """Formatter that wraps text based on terminal width and adds neon colors."""
+
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    RED = "\033[91m"
+    BLUE = "\033[94m"
+    RESET = "\033[0m"
+
+    def format(self, record: logging.LogRecord) -> str:
+        cols, _ = shutil.get_terminal_size((80, 20))
+        color = self.RESET
+        if record.levelno == logging.INFO:
+            color = self.GREEN
+        elif record.levelno == logging.WARNING:
+            color = self.YELLOW
+        elif record.levelno >= logging.ERROR:
+            color = self.RED
+
+        prefix = f"{time.strftime('%H:%M:%S')} | "
+        available_width = max(cols - len(prefix) - 1, 20)
+        message = record.getMessage()
+        wrapped_lines = textwrap.wrap(message, width=available_width)
+
+        formatted_msg = ""
+        for i, line in enumerate(wrapped_lines):
+            if i == 0:
+                formatted_msg += (
+                    f"{self.BLUE}{prefix}{self.RESET}{color}{line}{self.RESET}"
+                )
+            else:
+                formatted_msg += f"\n{' ' * len(prefix)}{color}{line}{self.RESET}"
+        return formatted_msg
+
+
+logger = logging.getLogger("NoClaw")
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(CyberpunkFormatter())
+logger.addHandler(handler)
+logger.propagate = False
 
 
 class CoreUtilsMixin:
@@ -136,9 +179,7 @@ class CoreUtilsMixin:
         ) as tmp_file:
             tmp_file.write(initial_content)
             tmp_file_path = tmp_file.name
-        logger.info(
-            f"\n📝 Opening prompt augmentation editor: {editor} {tmp_file_path}"
-        )
+        logger.info(f"Opening prompt augmentation editor: {editor} {tmp_file_path}")
         logger.info(
             "Add your additional instructions/context. Save and close the file to continue."
         )
@@ -167,7 +208,7 @@ class CoreUtilsMixin:
         ) as tmp_file:
             tmp_file.write(initial_prompt)
             tmp_file_path = tmp_file.name
-        logger.info(f"\n📝 Opening prompt in editor: {editor} {tmp_file_path}")
+        logger.info(f"Opening prompt in editor: {editor} {tmp_file_path}")
         logger.info(
             "Save and close the file to continue. (e.g., Ctrl+X, then Y, then Enter for nano)"
         )
@@ -187,8 +228,8 @@ class CoreUtilsMixin:
         finally:
             os.remove(tmp_file_path)
 
-    def backup_workspace(self) -> dict:
-        state = {}
+    def backup_workspace(self) -> dict[str, str]:
+        state: dict[str, str] = {}
         for root, dirs, files in os.walk(self.target_dir):
             dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
             for file in files:
@@ -201,7 +242,7 @@ class CoreUtilsMixin:
                         pass
         return state
 
-    def restore_workspace(self, state: dict):
+    def restore_workspace(self, state: dict[str, str]):
         for path, content in state.items():
             try:
                 with open(path, "w", encoding="utf-8") as f:
@@ -260,7 +301,7 @@ class CoreUtilsMixin:
                     print(content, end="", flush=True)
                     response_text += content
         except Exception as e:
-            logger.error(f"\nOllama Error: {e}")
+            logger.error(f"Ollama Error: {e}")
         return response_text
 
     def _stream_single_llm(
@@ -271,35 +312,29 @@ class CoreUtilsMixin:
         gen_start_time = time.time()
 
         def spinner():
-            start_time = time.time()
             spinner_chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
             i = 0
             while not first_chunk_received[0]:
-                elapsed = time.time() - start_time
+                cols, _ = shutil.get_terminal_size((80, 20))
+                elapsed = time.time() - gen_start_time
                 expected_time = max(1, input_tokens / 12.0)
-                progress = elapsed / expected_time
-                bar_len = 25
-                filled = min(bar_len, int(progress * bar_len))
+                progress = min(1.0, elapsed / expected_time)
+
+                bar_len = max(10, cols - 65)
+                filled = int(progress * bar_len)
                 bar = "█" * filled + "░" * (bar_len - filled)
-                status_text = f"[{bar}] {min(100.0, progress * 100):.1f}%"
-                if progress >= 1.0:
-                    status_text = f"[{'█' * 25}] 100% - AI Inference..."
-                ctx_label = f" [{context}]" if context else ""
-                sys.stdout.write(
-                    f"\r{spinner_chars[i]} Reading{ctx_label} ~{input_tokens} ctx... {status_text} ({elapsed:.1f}s)\033[K"
-                )
+                status = f"{spinner_chars[i]} Reading [{context}] ~{input_tokens} ctx... [{bar}] {progress * 100:.1f}%"
+                sys.stdout.write(f"\r\033[K{status[: cols - 1]}")
                 sys.stdout.flush()
                 i = (i + 1) % len(spinner_chars)
                 time.sleep(0.1)
 
-        t = threading.Thread(target=spinner)
+        t = threading.Thread(target=spinner, daemon=True)
         t.start()
 
         def on_chunk():
             if not first_chunk_received[0]:
                 first_chunk_received[0] = True
-                if t.is_alive():
-                    t.join()
                 sys.stdout.write("\r\033[K")
                 sys.stdout.flush()
                 source = f"Gemini ...{key[-4:]}" if key else "Local Ollama"
@@ -312,15 +347,10 @@ class CoreUtilsMixin:
             else:
                 response_text = self.stream_ollama(prompt, on_chunk)
         except Exception as e:
-            if not first_chunk_received[0]:
-                first_chunk_received[0] = True
-                t.join()
-            sys.stdout.write("\r\033[K")
-            sys.stdout.flush()
+            first_chunk_received[0] = True
             return f"ERROR_CODE_EXCEPTION: {e}"
         if not first_chunk_received[0]:
             first_chunk_received[0] = True
-            t.join()
         final_time = time.time() - gen_start_time
         print(
             f"\n\n[✅ Generation Complete: ~{len(response_text) // 4} tokens in {final_time:.1f}s]"
@@ -328,17 +358,14 @@ class CoreUtilsMixin:
         return response_text
 
     def get_valid_llm_response(self, prompt: str, validator, context: str = "") -> str:
-        """Loops through keys. If a key hits 429, it tries the next. If all hit 429, triggers cooldown."""
         attempts = 0
         use_ollama = False
-
         while True:
             key = None
             now = time.time()
             available_keys = [
                 k for k, cooldown in self.key_cooldowns.items() if now > cooldown
             ]
-
             if not available_keys:
                 if not use_ollama:
                     logger.warning(
@@ -349,32 +376,23 @@ class CoreUtilsMixin:
                 use_ollama = False
                 key = available_keys[attempts % len(available_keys)]
                 logger.info(
-                    f"\n[Attempting Gemini API Key {attempts % len(available_keys) + 1}/{len(available_keys)} Available]"
+                    f"Attempting Gemini API Key {attempts % len(available_keys) + 1}/{len(available_keys)}"
                 )
-
             if use_ollama:
-                logger.info("\n[Attempting Local Ollama]")
-
+                logger.info("Using Local Ollama Engine...")
             response_text = self._stream_single_llm(prompt, key=key, context=context)
-
             if response_text.startswith("ERROR_CODE_429"):
                 if key:
-                    logger.warning(
-                        "⚠️ Key hit a 429 rate limit. Putting it in a 20-minute timeout."
-                    )
                     self.key_cooldowns[key] = time.time() + 1200
                 attempts += 1
                 continue
-
             if response_text.startswith("ERROR_CODE_") or not response_text.strip():
-                logger.warning("⚠️ API Error or Empty Response. Rotating...")
                 attempts += 1
                 continue
-
             if validator(response_text):
                 return response_text
             else:
-                logger.warning("LLM response failed validation. Rotating...")
+                logger.warning("LLM response failed validation. Retrying...")
                 attempts += 1
 
     def _get_user_prompt_augmentation(self, initial_text: str = "") -> str:
@@ -386,27 +404,17 @@ class CoreUtilsMixin:
         ) as tmp_file:
             tmp_file.write(initial_text)
             tmp_file_path = tmp_file.name
-        logger.info(
-            f"\n📝 Opening prompt augmentation editor: {editor} {tmp_file_path}"
-        )
-        logger.info(
-            "Add your additional instructions/context. Save and close the file to continue."
-        )
+        logger.info(f"Opening prompt augmentation editor: {editor}")
         try:
             subprocess.run([editor, tmp_file_path], check=True)
             with open(tmp_file_path, "r", encoding="utf-8") as f:
                 edited_content = f.read()
             return edited_content
-        except FileNotFoundError:
-            logger.error(f"❌ Editor '{editor}' not found. No augmentation applied.")
-            return initial_text
-        except subprocess.CalledProcessError:
-            logger.error(
-                f"❌ Editor '{editor}' exited with an error. No augmentation applied."
-            )
+        except Exception:
             return initial_text
         finally:
-            os.remove(tmp_file_path)
+            if os.path.exists(tmp_file_path):
+                os.remove(tmp_file_path)
 
     def ensure_imports_retained(
         self, orig_code: str, new_code: str, filepath: str
@@ -526,29 +534,7 @@ class CoreUtilsMixin:
                             "\n".join(lines[i : i + len(search_lines)])
                         )
                         if norm_search in test_block:
-                            original_indent = ""
-                            if i < len(lines):
-                                line = lines[i]
-                                original_indent = line[: len(line) - len(line.lstrip())]
-
-                            replacement_lines = raw_replace.splitlines()
-                            first_rep_line = next(
-                                (line for line in replacement_lines if line.strip()), ""
-                            )
-                            rep_base_indent_len = len(first_rep_line) - len(
-                                first_rep_line.lstrip()
-                            )
-
-                            fixed_replace_lines = []
-                            for r_line in replacement_lines:
-                                if r_line.strip():
-                                    fixed_replace_lines.append(
-                                        original_indent + r_line[rep_base_indent_len:]
-                                    )
-                                else:
-                                    fixed_replace_lines.append("")
-
-                            lines[i : i + len(search_lines)] = fixed_replace_lines
+                            lines[i : i + len(search_lines)] = [raw_replace]
                             new_code = "\n".join(lines)
                             block_applied = True
                             logger.info(
@@ -585,9 +571,6 @@ class CoreUtilsMixin:
                 except Exception:
                     pass
             if not block_applied:
-                logger.warning(
-                    "Could not find <SEARCH> text with standard methods. Trying robust line-based fuzzy match..."
-                )
                 search_lines_stripped = [
                     line.strip() for line in search_lines if line.strip()
                 ]
@@ -616,17 +599,11 @@ class CoreUtilsMixin:
                             )
                             break
             if not block_applied:
-                logger.warning(
-                    "Could not find <SEARCH> text in source even with Smart-Align, Fuzzy Search, and Robust Line Matching."
-                )
                 all_edits_succeeded = False
         return new_code, explanation, all_edits_succeeded
 
     def _find_entry_file(self) -> str | None:
         FORBIDDEN = {"venv", ".venv", "autovenv", "__pycache__", "node_modules", ".git"}
-
-        # 1. PRIORITY SEARCH: Look for NoClaw's controller or common app roots first
-        # This ensures we pick 'entrance.py' during self-evolution.
         priority_files = [
             "entrance.py",
             "main.py",
@@ -638,24 +615,20 @@ class CoreUtilsMixin:
             target = os.path.join(self.target_dir, f_name)
             if os.path.exists(target):
                 try:
-                    with open(target, "r", encoding="utf-8", errors="ignore") as f:
+                    with open(target, "r", encoding="utf-8") as f:
                         if 'if __name__ == "__main__":' in f.read():
                             return target
                 except Exception:
                     continue
-
-        # 2. DEEP SEARCH: If no priority file, walk the directory
         for root, dirs, files in os.walk(self.target_dir):
             dirs[:] = [d for d in dirs if d not in FORBIDDEN and not d.startswith(".")]
             for file in files:
-                # EXCLUDE internal helper files that have main blocks only for printing warnings
                 if file in [
                     "autoreviewer.py",
                     "core_utils.py",
                     "prompts_and_memory.py",
                 ] or not file.endswith(".py"):
                     continue
-
                 file_path = os.path.join(root, file)
                 try:
                     with open(file_path, "r", encoding="utf-8") as f:
