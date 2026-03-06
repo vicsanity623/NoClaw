@@ -72,6 +72,13 @@ class AutoReviewer(CoreUtilsMixin, PromptsAndMemoryMixin):
 
     def scan_for_lazy_code(self, filepath: str, content: str) -> list[str]:
         issues = []
+        lines = content.splitlines()
+
+        if len(lines) > 800:
+            issues.append(
+                f"Architectural Bloat: File has {len(lines)} lines. This exceeds the 800-line modularity threshold. Priority: HIGH. Action: Split into smaller modules."
+            )
+
         try:
             tree = ast.parse(content)
         except SyntaxError as e:
@@ -825,6 +832,27 @@ class AutoReviewer(CoreUtilsMixin, PromptsAndMemoryMixin):
         lang_name, lang_tag = self.get_language_info(target_path)
         with open(target_path, "r", encoding="utf-8") as f:
             source_code = f.read()
+
+        # --- NEW: ARCHITECTURAL SPLIT SUPPORT ---
+        # Look for a <CREATE_FILE> tag in the AI proposal
+        new_file_match = re.search(
+            r'<CREATE_FILE path="(.*?)">(.*?)</CREATE_FILE>', feature_content, re.DOTALL
+        )
+        if new_file_match:
+            new_path_rel = new_file_match.group(1)
+            new_code_payload = new_file_match.group(2).strip()
+            new_path_abs = os.path.join(self.target_dir, new_path_rel)
+            if not os.path.exists(new_path_abs):
+                logger.warning(
+                    f"🏗️ ARCHITECTURAL SPLIT: Spawning new module `{new_path_rel}`"
+                )
+                with open(new_path_abs, "w", encoding="utf-8") as f:
+                    f.write(new_code_payload)
+                self.session_context.append(
+                    f"Created new architectural module: `{new_path_rel}`"
+                )
+        # ----------------------------------------
+
         exp_match = re.search(
             r"\*\*Explanation:\*\*(.*?)(?:###|---|>)",
             feature_content,
