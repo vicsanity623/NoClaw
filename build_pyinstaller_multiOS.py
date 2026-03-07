@@ -7,7 +7,7 @@ from pathlib import Path
 def main():
     os_name = platform.system().lower()
     project_root = Path(__file__).parent.absolute()
-    VERSION = "0.2.2-beta1"
+    VERSION = "0.2.2"
     APP_NAME = "Py-OB"
     print(f"🚀 Forging {APP_NAME} v{VERSION} for {os_name}...")
     common = [
@@ -15,6 +15,7 @@ def main():
         "--clean",
         "--noconfirm",
         "--hidden-import=autoreviewer",
+        "--hidden-import=reviewer_mixins",
         "--hidden-import=core_utils",
         "--hidden-import=prompts_and_memory",
         "--hidden-import=requests",
@@ -89,7 +90,7 @@ def main():
             "600",
             "400",
             "--icon-size",
-            "100",
+            "150",
             "--icon",
             f"{APP_NAME}.app",
             "150",

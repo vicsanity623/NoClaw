@@ -1,12 +1,3 @@
-try:
-    import charset_normalizer
-except ImportError:
-    pass
-try:
-    import chardet
-except ImportError:
-    pass
-
 import os
 import re
 import ast
