@@ -69,6 +69,10 @@ Interactive terminal checkpoints at every stage:
 - **Fallback**: Local Ollama (`qwen3-coder:30b`) activates automatically when all API keys are rate-limited
 - **Progress Spinner**: Real-time token estimation with animated progress bar during inference
 
+
+### 🧑‍🔧 Got Bugs/Errors or is your code crashing?
+- **Scan & Fix**: Run PyOB on your project and let it perform a test run, it will then see the crash/errors and find bugs. PyOB will then perform a code review and propose a fix automatically fixing your crashes and repairing any bugs. 
+
 ---
 
 ## 🚀 Getting Started
