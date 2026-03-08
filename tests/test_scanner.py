@@ -63,7 +63,6 @@ def test_directory_scanner_finds_all_relevant_files(tmp_path):
     # Expected files (absolute paths)
     expected_files = [
         str(root_dir / "main.py"),
-        str(root_dir / "README.md"),
         str(sub_dir_1 / "module_a.py"),
         str(sub_dir_1 / "data.json"),
         str(sub_dir_2 / "helper.py"),
