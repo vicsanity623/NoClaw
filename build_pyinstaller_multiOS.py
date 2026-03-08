@@ -7,7 +7,7 @@ from pathlib import Path
 def main():
     os_name = platform.system().lower()
     project_root = Path(__file__).parent.absolute()
-    VERSION = "0.2.5"
+    VERSION = "0.2.6"
     APP_NAME = "Py-OB"
     print(f"🚀 Forging {APP_NAME} v{VERSION} for {os_name}...")
     common = [

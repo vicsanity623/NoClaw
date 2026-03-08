@@ -1,10 +1,14 @@
 import json
 import os
+import shlex
 import subprocess
 import sys
 from pathlib import Path
 
 CONFIG_FILE = Path.home() / ".pyob_config"
+
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+DEFAULT_LOCAL_MODEL = "qwen3-coder:30b"
 
 
 def load_config():
@@ -31,13 +35,15 @@ def load_config():
     print("⚠️  WARNING: PYOB is optimized for 'gemini-2.5-flash' and 'qwen3-coder:30b'.")
     print("   Changing these may result in parsing errors or logic loops.")
 
-    g_model = input("\nEnter Gemini Model [default: gemini-2.5-flash]: ").strip()
+    g_model = input(f"\nEnter Gemini Model [default: {DEFAULT_GEMINI_MODEL}]: ").strip()
     if not g_model:
-        g_model = "gemini-2.5-flash"
+        g_model = DEFAULT_GEMINI_MODEL
 
-    l_model = input("Enter Local Ollama Model [default: qwen3-coder:30b]: ").strip()
+    l_model = input(
+        f"Enter Local Ollama Model [default: {DEFAULT_LOCAL_MODEL}]: "
+    ).strip()
     if not l_model:
-        l_model = "qwen3-coder:30b"
+        l_model = DEFAULT_LOCAL_MODEL
 
     config = {"gemini_keys": keys, "gemini_model": g_model, "local_model": l_model}
 
@@ -51,7 +57,11 @@ def load_config():
 
 def ensure_terminal():
     if ".app/Contents/MacOS" in sys.executable and not os.isatty(sys.stdin.fileno()):
-        cmd = f'tell application "Terminal" to do script "{sys.executable}"'
+        # Reconstruct the command to run the script with its original arguments
+        script_path = shlex.quote(sys.argv[0])
+        args = " ".join(shlex.quote(arg) for arg in sys.argv[1:])
+        full_command = f"{sys.executable} {script_path} {args}".strip()
+        cmd = f'tell application "Terminal" to do script "{full_command}"'
         subprocess.run(["osascript", "-e", cmd])
         sys.exit(0)
 
@@ -65,8 +75,8 @@ def main():
     print("═" * 70)
     config = load_config()
     os.environ["PYOB_GEMINI_KEYS"] = config.get("gemini_keys", "")
-    os.environ["PYOB_GEMINI_MODEL"] = config.get("gemini_model", "gemini-2.5-flash")
-    os.environ["PYOB_LOCAL_MODEL"] = config.get("local_model", "qwen3-coder:30b")
+    os.environ["PYOB_GEMINI_MODEL"] = config.get("gemini_model", DEFAULT_GEMINI_MODEL)
+    os.environ["PYOB_LOCAL_MODEL"] = config.get("local_model", DEFAULT_LOCAL_MODEL)
 
     # Absolute import for the package
     from pyob.entrance import EntranceController

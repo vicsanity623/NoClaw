@@ -1,9 +1,7 @@
 import json
 import os
 from http.server import BaseHTTPRequestHandler
-from typing import Any, Optional
-
-from src.pyob.entrance import EntranceController
+from typing import Any
 
 OBSERVER_HTML = """
 <!DOCTYPE html>
@@ -63,24 +61,46 @@ OBSERVER_HTML = """
             try {
                 const response = await fetch('/api/status');
                 const data = await response.json();
-                document.getElementById('iteration').innerText = data.iteration;
-                document.getElementById('ledger').innerText = data.ledger_stats.definitions;
+                document.getElementById('iteration').innerText = data.iteration || "0";
+                document.getElementById('ledger').innerText = data.ledger_stats?.definitions || "0";
+                const patchCount = data.patches_count || 0;
+                document.getElementById('status').innerText = (data.cascade_queue?.length > 0 || patchCount > 0) ? "EVOLVING" : "READY";
                 document.getElementById('memory').innerText = data.memory || "Initializing brain...";
                 document.getElementById('history').innerText = data.history || "No history recorded yet.";
                 document.getElementById('analysis').innerText = data.analysis || "Parsing directory structure...";
                 const queueDiv = document.getElementById('queue');
-                queueDiv.innerHTML = data.cascade_queue.length > 0 ? data.cascade_queue.map(f => `<span class='queue-item'>${f}</span>`).join('') : "IDLE // NO PENDING CASCADES";
-                document.getElementById('status').innerText = data.cascade_queue.length > 0 ? "EVOLVING" : "READY";
+                queueDiv.innerHTML = data.cascade_queue?.length > 0
+                    ? data.cascade_queue.map(f => `<span class='queue-item'>${f}</span>`).join('')
+                    : "IDLE // NO PENDING CASCADES";
 
-                // Fetch and render pending patches
-                const patchesResponse = await fetch('/api/pending_patches');
-                const patchesData = await patchesResponse.json();
-                renderPatches(patchesData.patches);
-
+                if (patchCount > 0) {
+                    const pResponse = await fetch('/api/pending_patches');
+                    const pData = await pResponse.json();
+                    renderPatches(pData.patches);
+                } else {
+                    renderPatches([]); // Clear the list if no patches
+                }
             } catch (e) {
                 console.error("Error updating stats:", e);
                 document.getElementById('status').innerText = "OFFLINE";
             }
+        }
+
+        function renderPatches(patches = []) { // Added default empty array
+            const patchesDiv = document.getElementById('pendingPatches');
+            if (!patches || patches.length === 0) { // Added null check
+                patchesDiv.innerHTML = "No pending patches.";
+                return;
+            }
+            patchesDiv.innerHTML = patches.map(patch => `
+                <div class="patch-card">
+                    <div class="label">Target: ${patch.file}</div>
+                    <pre class="patch-content">${patch.explanation}</pre>
+                    <div class="patch-actions" style="margin-top: 10px;">
+                        <div style="color: #888; font-size: 0.8em; margin-bottom: 5px;">Review on GitHub PR to Apply</div>
+                    </div>
+                </div>
+            `).join('');
         }
 
         async function setManualTarget() {
@@ -112,7 +132,6 @@ OBSERVER_HTML = """
             }
         }
 
-        // New function to render patches
         function renderPatches(patches) {
             const patchesDiv = document.getElementById('pendingPatches');
             if (patches.length === 0) {
@@ -131,7 +150,6 @@ OBSERVER_HTML = """
             `).join('');
         }
 
-        // New function to send patch review action
         async function reviewPatch(patchId, action) {
             try {
                 const response = await fetch('/api/review_patch', {
@@ -160,12 +178,12 @@ OBSERVER_HTML = """
 
 
 class ObserverHandler(BaseHTTPRequestHandler):
-    controller: Optional[EntranceController] = None
+    controller: Any = None
 
     def do_GET(self):
         if self.path == "/api/status":
             if self.controller is None:
-                self.send_response(503)  # Service Unavailable
+                self.send_response(503)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
                 self.wfile.write(
@@ -176,9 +194,15 @@ class ObserverHandler(BaseHTTPRequestHandler):
             self.send_header("Content-type", "application/json")
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
+            pr_content = self.controller._read_file(
+                os.path.join(self.controller.pyob_dir, "PEER_REVIEW.md")
+            )
+            patch_count = pr_content.count("## 🛠 Review for")
+
             status = {
                 "iteration": getattr(self.controller, "current_iteration", 1),
                 "cascade_queue": self.controller.cascade_queue,
+                "patches_count": patch_count,
                 "ledger_stats": {
                     "definitions": len(self.controller.ledger["definitions"]),
                     "references": len(self.controller.ledger["references"]),
@@ -192,7 +216,6 @@ class ObserverHandler(BaseHTTPRequestHandler):
                 ],
             }
             self.wfile.write(json.dumps(status).encode())
-        # New GET endpoint for pending patches
         elif self.path == "/api/pending_patches":
             if self.controller is None:
                 self.send_response(503)
@@ -203,25 +226,23 @@ class ObserverHandler(BaseHTTPRequestHandler):
                 )
                 return
             try:
-                pending_patches = (
-                    self.controller.get_pending_patches()
-                )  # Assumes this method exists in EntranceController
+                pr_path = os.path.join(self.controller.pyob_dir, "PEER_REVIEW.md")
+                patches = []
+                if os.path.exists(pr_path):
+                    content = self.controller._read_file(pr_path)
+                    patches.append(
+                        {
+                            "file": "PEER_REVIEW.md",
+                            "explanation": content[:500] + "...",
+                            "id": "PR_1",
+                        }
+                    )
+
                 self.send_response(200)
                 self.send_header("Content-type", "application/json")
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
-                self.wfile.write(json.dumps({"patches": pending_patches}).encode())
-            except AttributeError:
-                self.send_response(500)
-                self.send_header("Content-type", "application/json")
-                self.end_headers()
-                self.wfile.write(
-                    json.dumps(
-                        {
-                            "error": "Controller method 'get_pending_patches' not found. Ensure entrance.py is updated."
-                        }
-                    ).encode()
-                )
+                self.wfile.write(json.dumps({"patches": patches}).encode())
             except Exception as e:
                 self.send_response(500)
                 self.send_header("Content-type", "application/json")
@@ -266,9 +287,7 @@ class ObserverHandler(BaseHTTPRequestHandler):
                     )
                     return
 
-                # This method call depends on entrance.py being updated
                 self.controller.set_manual_target_file(target_file)
-
                 self.send_response(200)
                 self.send_header("Content-type", "application/json")
                 self.send_header("Access-Control-Allow-Origin", "*")
@@ -288,7 +307,6 @@ class ObserverHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
             except AttributeError:
-                # If controller doesn't have set_manual_target_file yet
                 self.send_response(500)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
@@ -306,7 +324,6 @@ class ObserverHandler(BaseHTTPRequestHandler):
                 self.wfile.write(
                     json.dumps({"error": f"Internal server error: {str(e)}"}).encode()
                 )
-        # New POST endpoint for reviewing patches
         elif self.path == "/api/review_patch":
             if self.controller is None:
                 self.send_response(503)
@@ -322,7 +339,7 @@ class ObserverHandler(BaseHTTPRequestHandler):
             try:
                 data = json.loads(post_data.decode("utf-8"))
                 patch_id = data.get("patch_id")
-                action = data.get("action")  # 'approve' or 'reject'
+                action = data.get("action")
 
                 if not patch_id or not action:
                     self.send_response(400)
@@ -345,10 +362,7 @@ class ObserverHandler(BaseHTTPRequestHandler):
                     )
                     return
 
-                self.controller.process_patch_review(
-                    patch_id, action
-                )  # Assumes this method exists in EntranceController
-
+                self.controller.process_patch_review(patch_id, action)
                 self.send_response(200)
                 self.send_header("Content-type", "application/json")
                 self.send_header("Access-Control-Allow-Origin", "*")

@@ -195,8 +195,9 @@ class EntranceController:
         iteration = 1
         while True:
             self.current_iteration = iteration
-            self.self_evolved_flag = False
+            self.self_evolved_flag = False  # Reset flag for the current loop
 
+            # 1. Check for remote updates (sets flag if remote changed engine)
             if self.sync_with_remote():
                 res = subprocess.run(
                     ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"],
@@ -204,13 +205,31 @@ class EntranceController:
                     capture_output=True,
                     text=True,
                 )
-
                 if any(ef in res.stdout for ef in self.ENGINE_FILES):
                     logger.warning(
-                        "🧠 REMOTE EVOLUTION: Engine files updated via sync. Rebooting..."
+                        "🧠 REMOTE EVOLUTION: Engine updated via sync. Rebooting..."
                     )
                     self.self_evolved_flag = True
 
+            # 2. Check if we need to reboot from Sync before starting work
+            if self.self_evolved_flag:
+                self.reboot_pyob()
+
+            logger.info(
+                f"\n\n{'=' * 70}\nTargeted Pipeline Loop (Iteration {iteration})\n{'=' * 70}"
+            )
+
+            try:
+                # 3. Perform the actual work (sets flag if engine edited itself locally)
+                self.execute_targeted_iteration(iteration)
+            except KeyboardInterrupt:
+                logger.info("\nExiting Entrance Controller...")
+                break
+            except Exception as e:
+                logger.error(f"Unexpected error in master loop: {e}", exc_info=True)
+
+            # --- MOVE THE REBOOT CHECK HERE ---
+            # This catches local evolution immediately after the work is done
             if self.self_evolved_flag:
                 if getattr(sys, "frozen", False):
                     logger.warning(
@@ -220,18 +239,7 @@ class EntranceController:
                 else:
                     logger.warning("🐍 SCRIPT ENGINE EVOLVED: Initiating Hot-Reboot.")
                     self.reboot_pyob()
-
-            logger.info(
-                f"\n\n{'=' * 70}\nTargeted Pipeline Loop (Iteration {iteration})\n{'=' * 70}"
-            )
-
-            try:
-                self.execute_targeted_iteration(iteration)
-            except KeyboardInterrupt:
-                logger.info("\nExiting Entrance Controller...")
-                break
-            except Exception as e:
-                logger.error(f"Unexpected error in master loop: {e}", exc_info=True)
+            # -----------------------------------
 
             iteration += 1
             logger.info("Iteration complete. Waiting for system cooldown...")
