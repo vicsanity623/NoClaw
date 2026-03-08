@@ -157,7 +157,8 @@ class EntranceController:
                 shutil.copytree(dist_path, applications_path)
 
                 subprocess.Popen(
-                    ["open", "-a", applications_path, "--args", self.target_dir]
+                    ["open", "-a", applications_path, "--args", self.target_dir],
+                    shell=True,
                 )
 
                 logger.info("🔥 NEW VERSION RELAYED. ENGINE SHUTTING DOWN.")
@@ -465,9 +466,19 @@ class EntranceController:
                 stderr=subprocess.PIPE,
                 text=True,
                 cwd=self.target_dir,
-                shell=True
-                if sys.platform == "win32" and cmd and cmd[0] == "start"
-                else False,
+                shell=(
+                    True
+                    if (
+                        (sys.platform == "win32" and cmd and cmd[0] == "start")
+                        or (sys.platform == "darwin" and cmd and cmd[0] == "open")
+                        or (
+                            sys.platform not in ["win32", "darwin"]
+                            and cmd
+                            and cmd[0] == "xdg-open"
+                        )
+                    )
+                    else False
+                ),
                 close_fds=sys.platform != "win32",
             )
 
