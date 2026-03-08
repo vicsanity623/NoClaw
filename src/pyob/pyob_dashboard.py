@@ -1,7 +1,7 @@
 import json
 import os
 from http.server import BaseHTTPRequestHandler
-from typing import Any
+from typing import Any, Optional
 
 OBSERVER_HTML = """
 <!DOCTYPE html>
@@ -60,10 +60,18 @@ OBSERVER_HTML = """
 
 
 class ObserverHandler(BaseHTTPRequestHandler):
-    controller = None
+    controller: Optional[Any] = None
 
     def do_GET(self):
         if self.path == "/api/status":
+            if self.controller is None:
+                self.send_response(503)  # Service Unavailable
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps({"error": "Controller not initialized"}).encode()
+                )
+                return
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.send_header("Access-Control-Allow-Origin", "*")
