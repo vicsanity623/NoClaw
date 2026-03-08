@@ -46,6 +46,7 @@ class AutoReviewer(
         self.symbols_path = os.path.join(self.pyob_dir, SYMBOLS_FILE)
         self.memory = self.load_memory()
         self.session_context: list[str] = []
+        self.manual_target_file: str | None = None
         self._ensure_prompt_files()
 
         if AutoReviewer._shared_cooldowns is None:
@@ -88,6 +89,25 @@ class AutoReviewer(
             elif isinstance(node, ast.Attribute) and node.attr == "Any":
                 issues.append("Found use of 'typing.Any'.")
         return issues
+
+    def set_manual_target_file(self, filepath: str | None):
+        """
+        Sets or clears the manual target file for analysis.
+        If a filepath is provided, it will be used for the next analysis cycle.
+        If None, the system reverts to scanning the directory.
+        """
+        if filepath:
+            if not os.path.exists(filepath):
+                logger.warning(
+                    f"Manual target file '{filepath}' does not exist. Ignoring."
+                )
+                self.manual_target_file = None
+            else:
+                self.manual_target_file = os.path.abspath(filepath)
+                logger.info(f"Manual target file set to: {self.manual_target_file}")
+        else:
+            self.manual_target_file = None
+            logger.info("Manual target file cleared. Reverting to directory scan.")
 
     def run_linters(self, filepath: str) -> tuple[str, str]:
         ruff_out, mypy_out = "", ""
@@ -482,7 +502,20 @@ class AutoReviewer(
                 logger.info("==================================================")
                 logger.info("🚀 PHASE 1: Initial Assessment & Codebase Scan")
                 logger.info("==================================================")
-                all_files = self.scan_directory()
+                if self.manual_target_file:
+                    if os.path.exists(self.manual_target_file):
+                        all_files = [self.manual_target_file]
+                        logger.info(
+                            f"ð¯ Manual target file override active: {self.manual_target_file}"
+                        )
+                    else:
+                        logger.warning(
+                            f"Manual target file '{self.manual_target_file}' not found. Reverting to full scan."
+                        )
+                        self.manual_target_file = None  # Clear invalid target
+                        all_files = self.scan_directory()
+                else:
+                    all_files = self.scan_directory()
                 if not all_files:
                     return logger.warning("No supported source files found.")
                 for idx, filepath in enumerate(all_files, start=1):
