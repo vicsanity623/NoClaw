@@ -11,6 +11,7 @@ import threading
 import time
 from http.server import HTTPServer
 from pathlib import Path
+from typing import Optional  # Added Optional for type hinting
 
 from pyob.autoreviewer import AutoReviewer
 from pyob.pyob_code_parser import CodeParser
@@ -56,6 +57,7 @@ class EntranceController:
         self.cascade_queue: list[str] = []
         self.cascade_diffs: dict[str, str] = {}
         self.self_evolved_flag: bool = False
+        self.manual_target_file: Optional[str] = None  # NEW: For dashboard override
 
         self.current_iteration = 1
 
@@ -83,6 +85,15 @@ class EntranceController:
         print("🔗 URL: http://localhost:5000")
         print(f"📂 FILE: {obs_path}")
         print("=" * 60 + "\n")
+
+    def set_manual_target_file(self, file_path: str):
+        """Sets a file path to be targeted in the next iteration, overriding LLM choice."""
+        abs_path = os.path.join(self.target_dir, file_path)
+        if os.path.exists(abs_path):
+            self.manual_target_file = file_path
+            logger.info(f"Ã°Å¸Å½Â¯ Manual target set for next iteration: {file_path}")
+        else:
+            logger.warning(f"Ã¢ Å Manual target file not found: {file_path}")
 
     def sync_with_remote(self) -> bool:
         """Fetches remote updates and merges main if we are behind."""
@@ -533,6 +544,12 @@ class EntranceController:
         return list(set(impacted_files))
 
     def pick_target_file(self) -> str:
+        if self.manual_target_file:
+            target = self.manual_target_file
+            self.manual_target_file = None  # Clear after use
+            logger.info(f"Ã°Å¸Å½Â¯ Using manually set target file: {target}")
+            return target
+
         analysis = self._read_file(self.analysis_path)
         history = self._read_file(self.history_path) or "No history yet."
         last_file = ""
