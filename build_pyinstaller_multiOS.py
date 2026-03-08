@@ -7,7 +7,7 @@ from pathlib import Path
 def main():
     os_name = platform.system().lower()
     project_root = Path(__file__).parent.absolute()
-    VERSION = "0.2.3"
+    VERSION = "0.2.4"
     APP_NAME = "Py-OB"
     print(f"🚀 Forging {APP_NAME} v{VERSION} for {os_name}...")
     common = [
@@ -16,11 +16,13 @@ def main():
         "--noconfirm",
         "--paths=src",
         "--collect-all=pyob",
-        "--hidden-import=autoreviewer",
-        "--hidden-import=reviewer_mixins",
-        "--hidden-import=core_utils",
-        "--hidden-import=prompts_and_memory",
+        "--hidden-import=pyob.autoreviewer",
+        "--hidden-import=pyob.core_utils",
+        "--hidden-import=pyob.prompts_and_memory",
+        "--hidden-import=pyob.reviewer_mixins",
         "--hidden-import=pyob.entrance",
+        "--hidden-import=pyob.pyob_code_parser",
+        "--hidden-import=pyob.pyob_dashboard",
         "--hidden-import=requests",
         "--hidden-import=ollama",
         "--hidden-import=textwrap",

@@ -9,12 +9,11 @@ import subprocess
 import sys
 import threading
 import time
-from http.server import HTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from typing import Any
 
 from pyob.autoreviewer import AutoReviewer
-from pyob.pyob_code_parser import CodeParser
-from pyob.pyob_dashboard import OBSERVER_HTML, ObserverHandler
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(message)s")
 logger = logging.getLogger(__name__)
@@ -41,7 +40,6 @@ class EntranceController:
         self.history_path = os.path.join(self.pyob_dir, "HISTORY.md")
         self.symbols_path = os.path.join(self.pyob_dir, "SYMBOLS.json")
         self.llm_engine = AutoReviewer(self.target_dir)
-        self.code_parser = CodeParser()  # Instantiate the new parser
         self.ledger = self.load_ledger()
         self.cascade_queue: list[str] = []
         self.cascade_diffs: dict[str, str] = {}
@@ -156,8 +154,6 @@ class EntranceController:
                     "prompts_and_memory.py",
                     "entrance.py",
                     "reviewer_mixins.py",
-                    "pyob_code_parser.py",
-                    "pyob_dashboard.py",
                 ]
 
                 if history_text:
@@ -262,8 +258,6 @@ class EntranceController:
             "prompts_and_memory.py",
             "entrance.py",
             "reviewer_mixins.py",
-            "pyob_code_parser.py",
-            "pyob_dashboard.py",
         ]
         if any(f in target_rel_path for f in engine_files):
             timestamp = time.strftime("%Y%m%d_%H%M%S")
@@ -358,10 +352,6 @@ class EntranceController:
             logger.info("=" * 60 + "\n")
 
     def _run_final_verification_and_heal(self, backup_state: dict) -> bool:
-        """
-        Runs the project entry file for 10 seconds. Supports Python,
-        Node.js (package.json), and static HTML projects.
-        """
         entry_file = self.llm_engine._find_entry_file()
         if not entry_file:
             logger.warning("No main entry file found. Skipping runtime test.")
@@ -554,9 +544,7 @@ Reply ONLY with the relative file path.
             with open(f_path, "r", encoding="utf-8", errors="ignore") as f:
                 full_code = f.read()
             self.update_ledger_for_file(rel, full_code)
-            structure_dropdowns = self.code_parser.generate_structure_dropdowns(
-                f_path, full_code
-            )
+            structure_dropdowns = self.generate_structure_dropdowns(f_path, full_code)
             sum_prompt = f"Provide a one-sentence plain text summary of what the file `{rel}` does. \n\nCRITICAL: Do NOT include any HTML tags, <details> blocks, or code signatures in your response. Just the sentence.\n\nFile Structure for context:\n{structure_dropdowns}"
             desc = self.llm_engine.get_valid_llm_response(
                 sum_prompt, lambda t: "<details>" not in t and len(t) > 5, context=rel
@@ -574,7 +562,7 @@ Reply ONLY with the relative file path.
             return
         with open(target_abs_path, "r", encoding="utf-8", errors="ignore") as f:
             code = f.read()
-        structure = self.code_parser.generate_structure_dropdowns(target_abs_path, code)
+        structure = self.generate_structure_dropdowns(target_abs_path, code)
         sum_prompt = f"Provide a one-sentence plain text summary of what the file `{rel_path}` does. \n\nCRITICAL: Do NOT include any HTML, <details> tags, or code in your response.\n\nStructure:\n{structure}"
         desc = self.llm_engine.get_valid_llm_response(
             sum_prompt, lambda t: "<details>" not in t and len(t) > 5, context=rel_path
@@ -624,6 +612,120 @@ Reply ONLY with the relative file path.
         self.ledger["references"][rel_path] = list(set(potential_refs))
         self.save_ledger()
 
+    def generate_structure_dropdowns(self, filepath: str, code: str) -> str:
+        ext = os.path.splitext(filepath)[1].lower()
+        if ext == ".py":
+            return self._parse_python(code)
+        elif ext in [".js", ".ts"]:
+            return self._parse_javascript(code)
+        elif ext == ".html":
+            return self._parse_html(code)
+        elif ext == ".css":
+            return self._parse_css(code)
+        return ""
+
+    def _parse_python(self, code: str) -> str:
+        try:
+            tree = ast.parse(code)
+            imports, classes, functions, consts = [], [], [], []
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.Import, ast.ImportFrom)):
+                    imports.append(ast.unparse(node))
+                elif isinstance(node, ast.ClassDef):
+                    classes.append(f"class {node.name}")
+                elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    args = []
+                    for arg in node.args.args:
+                        if arg.arg != "self":
+                            args.append(arg.arg)
+                    if node.args.vararg:
+                        args.append(f"*{node.args.vararg.arg}")
+                    if node.args.kwarg:
+                        args.append(f"**{node.args.kwarg.arg}")
+                    sig = f"def {node.name}({', '.join(args)})"
+                    functions.append(sig)
+                elif isinstance(node, ast.Assign):
+                    for t in node.targets:
+                        if isinstance(t, ast.Name) and t.id.isupper():
+                            consts.append(t.id)
+            return self._format_dropdowns(imports, classes, functions, consts)
+        except Exception as e:
+            logger.warning(f"Failed to parse Python AST for dropdowns: {e}")
+            return ""
+
+    def _parse_javascript(self, code: str) -> str:
+        imports = re.findall(r"(?:import|from|require)\s+['\"].*?['\"]", code)
+        classes = re.findall(r"class\s+([a-zA-Z0-9_$]+)", code)
+        fn_patterns = [
+            r"function\s+([a-zA-Z0-9_$]+)\s*\(([^)]*)\)",
+            r"(?:const|let|var|window\.)\s*([a-zA-Z0-9_$]+)\s*=\s*(?:async\s*)?\(([^)]*)\)\s*=>",
+            r"^\s*([a-zA-Z0-9_$]+)\s*\(([^)]*)\)\s*\{",
+        ]
+        raw_fns = []
+        for pattern in fn_patterns:
+            raw_fns.extend(re.findall(pattern, code, re.MULTILINE))
+        clean_fns = []
+        seen = set()
+        for name, params in raw_fns:
+            if name not in seen and name not in [
+                "if",
+                "for",
+                "while",
+                "switch",
+                "return",
+                "await",
+            ]:
+                params = re.sub(r"\s+", " ", params).strip()
+                clean_fns.append(f"{name}({params})")
+                seen.add(name)
+        entities = re.findall(
+            r"(?:const|var|let)\s+([A-Z0-9_]{3,})|([a-zA-Z0-9_$]+)\s*:\s*(?:['\"].*?['\"]|[0-9\.]+|true|false|null|{)",
+            code,
+        )
+        clean_entities = sorted(
+            list(
+                set(
+                    [
+                        e[0] or e[1]
+                        for e in entities
+                        if (e[0] or e[1]) and (e[0] or e[1]) not in seen
+                    ]
+                )
+            )
+        )
+        return self._format_dropdowns(
+            imports, classes, sorted(clean_fns), clean_entities
+        )
+
+    def _parse_html(self, code: str) -> str:
+        scripts = re.findall(r"<script.*?src=['\"](.*?)['\"]", code)
+        styles = re.findall(r"<link.*?href=['\"](.*?)['\"]", code)
+        ids = re.findall(r"id=['\"](.*?)['\"]", code)
+        return self._format_dropdowns(
+            [],
+            [f"Script: {s}" for s in scripts],
+            [f"ID: #{i}" for i in ids],
+            [f"CSS: {s}" for s in styles],
+        )
+
+    def _parse_css(self, code: str) -> str:
+        selectors = re.findall(r"(\.[a-zA-Z0-9_-]+)\s*\{", code)
+        return self._format_dropdowns([], [], selectors[:50], [])
+
+    def _format_dropdowns(
+        self, imp: list[str], cls: list[str], fn: list[str], cnst: list[str]
+    ) -> str:
+        res = ""
+        if imp:
+            res += f"<details><summary>Imports ({len(imp)})</summary>{'<br>'.join(sorted(imp))}</details>\n"
+        if cnst:
+            res += f"<details><summary>Entities/Constants ({len(cnst)})</summary>{'<br>'.join(sorted(cnst))}</details>\n"
+        if cls:
+            res += f"<details><summary>Classes/Structures ({len(cls)})</summary>{'<br>'.join(sorted(cls))}</details>\n"
+        if fn:
+            res += f"<details><summary>Logic/Functions ({len(fn)})</summary>{'<br>'.join(sorted(fn))}</details>\n"
+        return res
+
     def append_to_history(self, rel_path: str, old_code: str, new_code: str):
         diff_lines = list(
             difflib.unified_diff(
@@ -656,6 +758,100 @@ Reply ONLY with the relative file path.
             except Exception:
                 return ""
         return ""
+
+
+OBSERVER_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PyOB // OBSERVER</title>
+    <style>
+        body { background: #050505; color: #00FF41; font-family: 'Menlo', monospace; margin: 0; padding: 20px; overflow-x: hidden; }
+        .glow { text-shadow: 0 0 10px #00FF41, 0 0 20px #00FF41; }
+        .border { border: 1px solid #00FF41; box-shadow: 0 0 15px rgba(0, 255, 65, 0.2); padding: 20px; margin-bottom: 20px; }
+        h1 { font-size: 2em; border-bottom: 2px solid #00FF41; padding-bottom: 10px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .card { background: rgba(0, 255, 65, 0.05); }
+        .label { color: #008F11; font-weight: bold; margin-bottom: 5px; }
+        .data { font-size: 0.9em; white-space: pre-wrap; height: 300px; overflow-y: auto; border: 1px solid #004411; padding: 10px; background: #000; }
+        .stat-bar { display: flex; justify-content: space-between; font-size: 1.2em; margin-bottom: 20px; }
+        .queue-item { background: #00FF41; color: #000; padding: 2px 5px; margin: 2px; display: inline-block; font-size: 0.8em; }
+        #iteration { font-size: 1.5em; color: #fff; }
+    </style>
+</head>
+<body>
+    <h1 class="glow">PYOB_OS // OBSERVER_DASHBOARD</h1>
+    <div class="stat-bar border card">
+        <div>ITERATION: <span id="iteration" class="glow">--</span></div>
+        <div>LEDGER: <span id="ledger">--</span> symbols</div>
+        <div>STATUS: <span id="status" style="color: #fff">SCANNING...</span></div>
+    </div>
+    <div class="border card"><div class="label">SYMBOLIC CASCADE QUEUE:</div><div id="queue">--</div></div>
+    <div class="grid">
+        <div class="border card"><div class="label">LIVE MEMORY (MEMORY.md):</div><div id="memory" class="data">--</div></div>
+        <div class="border card"><div class="label">RECENT HISTORY (HISTORY.md):</div><div id="history" class="data">--</div></div>
+    </div>
+    <div class="border card"><div class="label">LATEST ARCHITECTURAL ANALYSIS:</div><div id="analysis" class="data">--</div></div>
+    <script>
+        async function updateStats() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                document.getElementById('iteration').innerText = data.iteration;
+                document.getElementById('ledger').innerText = data.ledger_stats.definitions;
+                document.getElementById('memory').innerText = data.memory || "Initializing brain...";
+                document.getElementById('history').innerText = data.history || "No history recorded yet.";
+                document.getElementById('analysis').innerText = data.analysis || "Parsing directory structure...";
+                const queueDiv = document.getElementById('queue');
+                queueDiv.innerHTML = data.cascade_queue.length > 0 ? data.cascade_queue.map(f => `<span class='queue-item'>${f}</span>`).join('') : "IDLE // NO PENDING CASCADES";
+                document.getElementById('status').innerText = data.cascade_queue.length > 0 ? "EVOLVING" : "READY";
+            } catch (e) { document.getElementById('status').innerText = "OFFLINE"; }
+        }
+        setInterval(updateStats, 3000);
+        updateStats();
+    </script>
+</body>
+</html>
+"""
+
+
+class ObserverHandler(BaseHTTPRequestHandler):
+    controller = None
+
+    def do_GET(self):
+        if self.path == "/api/status":
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            status = {
+                "iteration": getattr(self.controller, "current_iteration", 1),
+                "cascade_queue": self.controller.cascade_queue,
+                "ledger_stats": {
+                    "definitions": len(self.controller.ledger["definitions"]),
+                    "references": len(self.controller.ledger["references"]),
+                },
+                "analysis": self.controller._read_file(self.controller.analysis_path),
+                "memory": self.controller._read_file(
+                    os.path.join(self.controller.target_dir, "MEMORY.md")
+                ),
+                "history": self.controller._read_file(self.controller.history_path)[
+                    -5000:
+                ],
+            }
+            self.wfile.write(json.dumps(status).encode())
+        elif self.path == "/" or self.path == "/observer.html":
+            self.send_response(200)
+            self.send_header("Content-type", "text/html")
+            self.end_headers()
+            self.wfile.write(OBSERVER_HTML.encode())
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def log_message(self, format: str, *args: Any) -> None:
+        return
 
 
 if __name__ == "__main__":
