@@ -36,6 +36,12 @@ OBSERVER_HTML = """
         <div class="border card"><div class="label">RECENT HISTORY (HISTORY.md):</div><div id="history" class="data">--</div></div>
     </div>
     <div class="border card"><div class="label">LATEST ARCHITECTURAL ANALYSIS:</div><div id="analysis" class="data">--</div></div>
+    <div class="border card">
+        <div class="label">MANUAL TARGET OVERRIDE:</div>
+        <input type="text" id="manualTargetFile" placeholder="e.g., src/pyob/new_feature.py" style="width: calc(100% - 120px); padding: 8px; margin-right: 10px; background: #000; border: 1px solid #00FF41; color: #00FF41;">
+        <button onclick="setManualTarget()" style="padding: 8px 15px; background: #00FF41; color: #000; border: none; cursor: pointer;">Set Next Target</button>
+        <div id="targetMessage" style="margin-top: 10px; font-size: 0.9em;"></div>
+    </div>
     <script>
         async function updateStats() {
             try {
@@ -51,6 +57,36 @@ OBSERVER_HTML = """
                 document.getElementById('status').innerText = data.cascade_queue.length > 0 ? "EVOLVING" : "READY";
             } catch (e) { document.getElementById('status').innerText = "OFFLINE"; }
         }
+
+        async function setManualTarget() {
+            const targetFile = document.getElementById('manualTargetFile').value;
+            const targetMessageDiv = document.getElementById('targetMessage');
+            if (!targetFile) {
+                targetMessageDiv.innerText = "Please enter a file path.";
+                targetMessageDiv.style.color = 'red';
+                return;
+            }
+            try {
+                const response = await fetch('/api/set_target_file', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target_file: targetFile })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    targetMessageDiv.innerText = `Target set: ${data.target_file}`;
+                    targetMessageDiv.style.color = '#00FF41';
+                    document.getElementById('manualTargetFile').value = ''; // Clear input
+                } else {
+                    targetMessageDiv.innerText = `Error: ${data.error || 'Failed to set target.'}`;
+                    targetMessageDiv.style.color = 'red';
+                }
+            } catch (e) {
+                targetMessageDiv.innerText = `Network error: ${e.message}`;
+                targetMessageDiv.style.color = 'red';
+            }
+        }
+
         setInterval(updateStats, 3000);
         updateStats();
     </script>
@@ -97,6 +133,78 @@ class ObserverHandler(BaseHTTPRequestHandler):
             self.send_header("Content-type", "text/html")
             self.end_headers()
             self.wfile.write(OBSERVER_HTML.encode())
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def do_POST(self):
+        if self.path == "/api/set_target_file":
+            if self.controller is None:
+                self.send_response(503)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps({"error": "Controller not initialized"}).encode()
+                )
+                return
+
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8"))
+                target_file = data.get("target_file")
+
+                if not target_file:
+                    self.send_response(400)
+                    self.send_header("Content-type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(
+                        json.dumps(
+                            {"error": "Missing 'target_file' in request body"}
+                        ).encode()
+                    )
+                    return
+
+                # This method call depends on entrance.py being updated
+                self.controller.set_manual_target_file(target_file)
+
+                self.send_response(200)
+                self.send_header("Content-type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps(
+                        {
+                            "message": "Manual target file set",
+                            "target_file": target_file,
+                        }
+                    ).encode()
+                )
+
+            except json.JSONDecodeError:
+                self.send_response(400)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Invalid JSON"}).encode())
+            except AttributeError:
+                # If controller doesn't have set_manual_target_file yet
+                self.send_response(500)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps(
+                        {
+                            "error": "Controller method 'set_manual_target_file' not found. Ensure entrance.py is updated."
+                        }
+                    ).encode()
+                )
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps({"error": f"Internal server error: {str(e)}"}).encode()
+                )
         else:
             self.send_response(404)
             self.end_headers()
