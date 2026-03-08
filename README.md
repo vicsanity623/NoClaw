@@ -3,7 +3,7 @@
 </p>
 <div align="center">
 
-# ∞ PyOuroBorus
+# ∞ Py-OuroBorus
 
 ### The Self-Healing, Symbolic Autonomous Code Architect
 
