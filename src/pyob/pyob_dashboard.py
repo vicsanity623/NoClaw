@@ -3,6 +3,8 @@ import os
 from http.server import BaseHTTPRequestHandler
 from typing import Any, Optional
 
+from src.pyob.entrance import EntranceController
+
 OBSERVER_HTML = """
 <!DOCTYPE html>
 <html lang="en">
@@ -96,7 +98,7 @@ OBSERVER_HTML = """
 
 
 class ObserverHandler(BaseHTTPRequestHandler):
-    controller: Optional[Any] = None
+    controller: Optional[EntranceController] = None
 
     def do_GET(self):
         if self.path == "/api/status":
