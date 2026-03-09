@@ -39,16 +39,17 @@ jobs:
           git config --global user.email "pyob-bot@users.noreply.github.com"
           git config --global user.name "pyob-bot"
 
-          # 2. Simplified HUD Tunnel (guaranteed to print the link)
+          # 2. Robust Observer Dashboard Tunnel (no more syntax errors)
           echo "🔗 Starting Observer Dashboard tunnel..."
-          curl -s https://pinggy.io/s | sh -s -- -p 5000 -R0 &
-          sleep 8                      # Give Pinggy time to connect and print the URL
-          disown                       # Keeps tunnel alive even if shell does weird stuff
+
+          nohup bash -c "curl -s https://pinggy.io/s | bash -s -- -p 5000 -R0" > /tmp/pinggy.log 2>&1 &
+          sleep 10   # give it time to connect and print the URL
 
           echo ""
           echo "=================================================="
-          echo "🚀 Observer Dashboard Tunnel"
-          echo "   👀 Look for the https://*.pinggy.io link in the lines ABOVE this"
+          echo "🚀 Pinggy Tunnel Output (look for the https://*.pinggy.io link here)"
+          echo "=================================================="
+          cat /tmp/pinggy.log || echo "No log output yet (rare)"
           echo "=================================================="
           echo ""
 
