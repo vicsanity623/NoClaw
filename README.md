@@ -369,7 +369,7 @@ your-project/
 
 # PyOB — Complete Technical Documentation
 
-> **Version**: 3.1 · **Last Updated**: March 2026
+> **Version**: 0.3.1 · **Last Updated**: March 2026
 > **Architecture**: Python 3.12+ · Mixin-Based Package · GitHub Marketplace Action
 
 ---
