@@ -16,34 +16,28 @@ OBSERVER_HTML = """
         * { box-sizing: border-box; }
         body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; margin: 0; padding: 15px; line-height: 1.5; }
         .hud-container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        
         /* Typography & Glow */
         h1 { grid-column: span 2; font-family: 'JetBrains Mono'; font-size: 1.2rem; letter-spacing: 2px; color: var(--accent); text-transform: uppercase; margin: 10px 0; display: flex; justify-content: space-between; }
         .glow { text-shadow: 0 0 15px var(--accent); }
-
         /* Component Cards */
         .card { background: var(--card); border: 1px solid #2a2a30; border-radius: 8px; padding: 20px; overflow: hidden; position: relative; }
         .card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.3; }
         .label { font-size: 0.7rem; font-weight: 600; color: var(--dim); text-transform: uppercase; margin-bottom: 12px; letter-spacing: 1px; display: flex; align-items: center; gap: 8px; }
         .label::before { content: ''; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; box-shadow: 0 0 8px var(--accent); }
-
         /* Data Displays */
         .data-box { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; height: 250px; overflow-y: auto; background: #00000044; border-radius: 4px; padding: 12px; color: #ced4e0; scrollbar-width: thin; }
         .stat-grid { grid-column: span 2; display: flex; gap: 40px; background: var(--card); padding: 15px 25px; border-radius: 8px; border: 1px solid #2a2a30; }
         .stat-item { display: flex; flex-direction: column; }
         .stat-val { font-size: 1.5rem; font-weight: 700; font-family: 'JetBrains Mono'; color: #fff; }
         .stat-lbl { font-size: 0.6rem; color: var(--dim); }
-
         /* Mobile Specifics */
         @media (max-width: 768px) {
             .hud-container { grid-template-columns: 1fr; }
             h1, .stat-grid { grid-column: 1; }
             .stat-grid { flex-wrap: wrap; gap: 20px; }
         }
-
         .status-pill { padding: 4px 12px; border-radius: 20px; font-size: 0.7rem; font-weight: 800; background: #222; }
         .evolving { color: var(--accent); border: 1px solid var(--accent); box-shadow: 0 0 10px #00ffa344; }
-        
         input { background: #000; border: 1px solid #2a2a30; color: var(--accent); padding: 10px; border-radius: 4px; width: 100%; font-family: 'JetBrains Mono'; margin-bottom: 10px; }
         button { width: 100%; padding: 12px; background: var(--accent); color: #000; border: none; border-radius: 4px; font-weight: 700; cursor: pointer; transition: 0.2s; }
         button:hover { filter: brightness(1.2); }
@@ -54,35 +48,29 @@ OBSERVER_HTML = """
         <span>PyOB // Evolution Engine</span>
         <span id="status-pill" class="status-pill">READY</span>
     </h1>
-
     <div class="hud-container">
         <div class="stat-grid">
             <div class="stat-item"><span class="stat-lbl">Iteration</span><span id="iteration" class="stat-val">--</span></div>
             <div class="stat-item"><span class="stat-lbl">Symbolic Ledger</span><span id="ledger" class="stat-val">--</span></div>
             <div class="stat-item"><span class="stat-lbl">Pending Cascades</span><span id="queue-count" class="stat-val">--</span></div>
         </div>
-
         <div class="card">
             <div class="label">Logic Memory (MEMORY.md)</div>
             <div id="memory" class="data-box">Initializing brain...</div>
         </div>
-
         <div class="card">
             <div class="label">System Logs (HISTORY.md)</div>
             <div id="history" class="data-box">No history yet.</div>
         </div>
-
         <div class="card" style="grid-column: span 2;">
             <div class="label">Architectural Analysis</div>
             <div id="analysis" class="data-box" style="height: 350px;">Scanning structure...</div>
         </div>
-
         <div class="card">
             <div class="label">Manual Override</div>
             <input type="text" id="manualTargetFile" placeholder="src/pyob/target.py">
             <button onclick="setManualTarget()">FORCE TARGET</button>
         </div>
-
         <div class="card">
             <div class="label">Queue Status</div>
             <div id="queue" class="data-box" style="height: 100px;">IDLE</div>
@@ -94,20 +82,16 @@ OBSERVER_HTML = """
             try {
                 const response = await fetch('/api/status');
                 const data = await response.json();
-                
                 document.getElementById('iteration').innerText = data.iteration || "0";
                 document.getElementById('ledger').innerText = (data.ledger_stats?.definitions || 0) + " SYM";
                 document.getElementById('queue-count').innerText = data.cascade_queue?.length || "0";
-                
                 const pill = document.getElementById('status-pill');
                 const isEvolving = data.cascade_queue?.length > 0 || data.patches_count > 0;
                 pill.innerText = isEvolving ? "EVOLVING" : "STABLE";
                 pill.className = isEvolving ? "status-pill evolving" : "status-pill";
-
                 document.getElementById('memory').innerText = data.memory || "Brain empty.";
                 document.getElementById('history').innerText = data.history || "No logs.";
                 document.getElementById('analysis').innerText = data.analysis || "Parsing...";
-                
                 const queueDiv = document.getElementById('queue');
                 queueDiv.innerText = data.cascade_queue?.length > 0 ? data.cascade_queue.join('\\n') : "EMPTY";
             } catch (e) { document.getElementById('status-pill').innerText = "OFFLINE"; }
