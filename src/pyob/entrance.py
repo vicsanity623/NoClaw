@@ -570,7 +570,7 @@ class EntranceController:
         changed_text = "\n".join(
             [line for line in diff if line.startswith("+") or line.startswith("-")]
         )
-        potential_symbols = set(re.findall(r"([a-zA-Z0-9_$]{4,})", changed_text))
+        potential_symbols = set(re.findall(r"\b[a-zA-Z_][a-zA-Z0-9_]*\b", changed_text))
         impacted_files = []
         for sym in potential_symbols:
             if self.ledger["definitions"].get(sym) == source_file:
