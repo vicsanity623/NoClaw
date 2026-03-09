@@ -29,17 +29,23 @@ jobs:
           pip install -e .
           pip install ruff mypy pytest types-requests types-chardet
 
-      - name: Run PyOB Service
+            - name: Run PyOB Service
         env:
           PYOB_GEMINI_KEYS: ${{ secrets.PYOB_GEMINI_KEYS }}
           GITHUB_TOKEN: ${{ secrets.BOT_GITHUB_TOKEN }}
+        shell: bash
         run: |
           # 1. Identity
           git config --global user.email "pyob-bot@users.noreply.github.com"
           git config --global user.name "pyob-bot"
 
-          # 2. Simplified HUD Tunnel (Backgrounded safely)
-          (curl -s https://pinggy.io/s | sh -s -- -p 5000 -R0) & 
-          
+          # 2. Simplified HUD Tunnel (Backgrounded safely + URL guaranteed to print)
+          curl -s https://pinggy.io/s | sh -s -- -p 5000 -R0 &
+          sleep 5                      # gives Pinggy time to spit out the public link
+
+          echo "=================================================="
+          echo "🚀 Observer Dashboard Tunnel should be right above ↑"
+          echo "=================================================="
+
           # 3. Launch
           pyob . --iterations 5
