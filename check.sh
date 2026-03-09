@@ -18,8 +18,8 @@ echo "🧹 1. Running Ruff (Linter & Imports)..."
 ruff check src/
 
 echo "-------------------------------------"
-echo "🪄  2. Running Ruff (Formatting Check)..."
-ruff format --check src/
+echo "🪄  2. Formatting Code with Ruff..."
+ruff format src/ tests/
 
 echo "-------------------------------------"
 echo "🔎 3. Running Mypy (Type Checking)..."
