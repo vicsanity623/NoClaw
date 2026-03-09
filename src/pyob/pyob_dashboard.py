@@ -66,6 +66,10 @@ OBSERVER_HTML = """
             <div class="label">Architectural Analysis</div>
             <div id="analysis" class="data-box" style="height: 350px;">Scanning structure...</div>
         </div>
+        <div class="card" style="grid-column: span 2;">
+            <div class="label">Pending Patch Reviews</div>
+            <div id="pending-patches" class="data-box" style="height: 250px;">No pending patches.</div>
+        </div>
         <div class="card">
             <div class="label">Manual Override</div>
             <input type="text" id="manualTargetFile" placeholder="src/pyob/target.py">
@@ -94,6 +98,7 @@ OBSERVER_HTML = """
                 document.getElementById('analysis').innerText = data.analysis || "Parsing...";
                 const queueDiv = document.getElementById('queue');
                 queueDiv.innerText = data.cascade_queue?.length > 0 ? data.cascade_queue.join('\\n') : "EMPTY";
+                await updatePendingPatches(); // Refresh pending patches
             } catch (e) { document.getElementById('status-pill').innerText = "OFFLINE"; }
         }
 
@@ -106,6 +111,50 @@ OBSERVER_HTML = """
                 body: JSON.stringify({ target_file: targetFile })
             });
             document.getElementById('manualTargetFile').value = '';
+        }
+
+        async function updatePendingPatches() {
+            try {
+                const response = await fetch('/api/pending_patches');
+                const data = await response.json();
+                const patchesDiv = document.getElementById('pending-patches');
+                patchesDiv.innerHTML = ''; // Clear previous content
+
+                if (data.patches && data.patches.length > 0) {
+                    data.patches.forEach(patch => {
+                        const patchElement = document.createElement('div');
+                        patchElement.style.marginBottom = '10px';
+                        patchElement.innerHTML = `
+                            <span style="color: var(--accent); font-weight: 700;">Patch ID: ${patch.id}</span><br>
+                            <span style="font-size: 0.8em; color: var(--dim);">File: ${patch.target_file}</span><br>
+                            <span style="font-size: 0.8em; color: var(--dim);">Description: ${patch.description || 'N/A'}</span><br>
+                            <button onclick="reviewPatch('${patch.id}', 'approve')" style="width: 48%; margin-right: 4%; background: #00cc66; color: #000;">APPROVE</button>
+                            <button onclick="reviewPatch('${patch.id}', 'reject')" style="width: 48%; background: #cc0000; color: #fff;">REJECT</button>
+                        `;
+                        patchesDiv.appendChild(patchElement);
+                    });
+                } else {
+                    patchesDiv.innerText = "No pending patches.";
+                }
+            } catch (e) {
+                console.error("Failed to fetch pending patches:", e);
+                document.getElementById('pending-patches').innerText = "Error loading patches.";
+            }
+        }
+
+        async function reviewPatch(patchId, action) {
+            try {
+                await fetch('/api/review_patch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ patch_id: patchId, action: action })
+                });
+                // Refresh stats and patches after review
+                await updateStats();
+            } catch (e) {
+                console.error(`Failed to ${action} patch ${patchId}:`, e);
+                alert(`Failed to ${action} patch ${patchId}. Check console for details.`);
+            }
         }
 
         setInterval(updateStats, 3000);
