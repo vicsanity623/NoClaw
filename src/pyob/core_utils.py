@@ -407,9 +407,12 @@ class CoreUtilsMixin:
             ]
             if not available_keys:
                 if os.environ.get("GITHUB_ACTIONS") == "true":
-                    logger.warning("⏳ CLOUD NOTICE: All 8 keys are currently rate-limited. Sleeping for 2 minutes...")
-                    time.sleep(120) # Wait for a cooldown to expire
-                    continue # Loop back and check available_keys again
+                    wait_times = [cooldown - now for cooldown in self.key_cooldowns.values()]
+                    sleep_duration = min(wait_times) if wait_times else 120
+                    sleep_duration = max(10, min(sleep_duration + 5, 1200))
+                    logger.warning(f"⏳ CLOUD NOTICE: All 8 keys rate-limited. Resuming in {int(sleep_duration)}s...")
+                    time.sleep(sleep_duration)
+                    continue
                 if not use_ollama:
                     logger.warning("🚫 All Gemini keys are currently rate-limited. Falling back to Local Ollama."
                     )
