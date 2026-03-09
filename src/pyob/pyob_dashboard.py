@@ -3,8 +3,6 @@ import os
 from http.server import BaseHTTPRequestHandler
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:
-    from pyob.entrance import EntranceController
 
 OBSERVER_HTML = """
 <!DOCTYPE html>
