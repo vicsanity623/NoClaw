@@ -446,14 +446,18 @@ class CoreUtilsMixin:
 
     def get_valid_llm_response(self, prompt: str, validator, context: str = "") -> str:
         """
-        SOTA LLM Orchestrator:
-        - Rotates Gemini Keys
-        - Pivots to GitHub Models (Phi-4) in the cloud
-        - Enforces mandatory bucket refills (60s) on empty responses
-        - Prevents high-frequency API spam
+        Elite LLM Orchestrator (v0.3.2):
+        - Prevents high-frequency Machine Gun API spam.
+        - Immediate Cloud Pivot (Gemini -> GitHub Models).
+        - Enforces mandatory 60s bucket refills on cloud failure.
+        - Multi-tier wait logic for rate-limit protection.
         """
         attempts = 0
         is_cloud = os.environ.get("GITHUB_ACTIONS") == "true"
+
+        logger.info(
+            f"📊 Engine check: Found {len(self.key_cooldowns)} Gemini API keys."
+        )
 
         while True:
             key = None
@@ -465,21 +469,36 @@ class CoreUtilsMixin:
                 logger.info(
                     f"Attempting Gemini API Key {attempts % len(available_keys) + 1}/{len(available_keys)}"
                 )
-                response_text = self._stream_single_llm(
-                    prompt, key=key, context=context
-                )
             elif is_cloud:
-                logger.warning(
-                    "⏳ Gemini keys limited. Pivoting to GitHub Models (Phi-4)..."
-                )
-                response_text = self._stream_single_llm(
-                    prompt, key=None, context=context
-                )
+                logger.warning("⏳ Gemini keys limited. Using GitHub Models (Phi-4)...")
             else:
                 logger.info("🏠 Using Local Ollama Engine...")
-                response_text = self._stream_single_llm(
-                    prompt, key=None, context=context
-                )
+
+            response_text = self._stream_single_llm(prompt, key=key, context=context)
+
+            if is_cloud and (
+                not response_text or response_text.startswith("ERROR_CODE_")
+            ):
+                if key is not None:
+                    if "429" in response_text:
+                        self.key_cooldowns[key] = time.time() + 1200
+                        logger.warning(f"⚠️ Key {key[-4:]} rate-limited. Pivoting...")
+
+                    logger.warning(
+                        "☁️ Gemini blipped/limited. Pivoting to GitHub Models (Phi-4) immediately..."
+                    )
+                    response_text = self._stream_single_llm(
+                        prompt, key=None, context=context
+                    )
+
+                if not response_text or response_text.startswith("ERROR_CODE_"):
+                    wait_time = 60
+                    logger.warning(
+                        f"⚠️ All Cloud Engines exhausted. Sleeping {wait_time}s to refill tokens..."
+                    )
+                    time.sleep(wait_time)
+                    attempts += 1
+                    continue
 
             if response_text.startswith("ERROR_CODE_429"):
                 if key:
@@ -493,24 +512,9 @@ class CoreUtilsMixin:
                 attempts += 1
                 continue
 
-            if is_cloud and (
-                not response_text or response_text.startswith("ERROR_CODE_")
-            ):
-                if key is not None:
-                    logger.warning(
-                        "☁️ Gemini failed/limited. Pivoting to GitHub Models (Phi-4) immediately..."
-                    )
-                    response_text = self._stream_single_llm(
-                        prompt, key=None, context=context
-                    )
-                if not response_text or response_text.startswith("ERROR_CODE_"):
-                    wait_time = 60
-                    logger.warning(
-                        f"⚠️ All Cloud Engines failed. Sleeping {wait_time}s to refill tokens..."
-                    )
-                    time.sleep(wait_time)
-                    attempts += 1
-                    continue
+            if is_cloud and key:
+                logger.info("⏳ Rotating keys... (10s anti-spam breather)")
+                time.sleep(10)
 
             if not response_text or response_text.startswith("ERROR_CODE_"):
                 logger.warning("⚠️ Generic LLM error. Retrying in 10s...")
