@@ -384,7 +384,8 @@ class CoreUtilsMixin:
             if key is not None:
                 response_text = self.stream_gemini(prompt, key, on_chunk)
             else:
-                if os.environ.get("GITHUB_ACTIONS") == "true":
+                is_cloud = os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("IS_CLOUD") == "true"
+                if is_cloud:
                     first_chunk_received[0] = True
                     return "ERROR_CODE_CLOUD_OLLAMA_BLOCKED"
 
@@ -406,7 +407,7 @@ class CoreUtilsMixin:
     def get_valid_llm_response(self, prompt: str, validator, context: str = "") -> str:
         attempts = 0
         use_ollama = False
-        is_cloud = os.environ.get("GITHUB_ACTIONS") == "true"
+        is_cloud = os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("IS_CLOUD") == "true"
 
         logger.info(
             f"📊 Engine check: Found {len(self.key_cooldowns)} Gemini API keys."
@@ -420,16 +421,18 @@ class CoreUtilsMixin:
             ]
             if not available_keys:
                 if is_cloud:
-                    wait_times = [
-                        cooldown - now for cooldown in self.key_cooldowns.values()
-                    ]
-                    sleep_duration = max(
-                        10, min(min(wait_times) if wait_times else 120, 1200)
+                    logger.warning(
+                        "⏳ CLOUD NOTICE: All Gemini keys rate-limited. Skipping Ollama."
                     )
                     logger.warning(
-                        f"⏳ CLOUD NOTICE: All keys rate-limited. Retrying Gemini in {int(sleep_duration)}s..."
+                        "⏳ Sleeping for 1 hour before restarting Gemini API attempts..."
                     )
-                    time.sleep(sleep_duration)
+                    time.sleep(3600)  # Sleep exactly 1 hour
+                    
+                    # Force restart Gemini API attempt by wiping all cooldown timers
+                    for k in self.key_cooldowns:
+                        self.key_cooldowns[k] = 0
+                        
                     continue
 
                 if not use_ollama:
@@ -453,8 +456,8 @@ class CoreUtilsMixin:
                 response_text.startswith("ERROR_CODE_") or not response_text.strip()
             ):
                 if "429" in response_text and key:
-                    self.key_cooldowns[key] = time.time() + 1200
-                    logger.warning("⚠️ Key rate-limited. Rotating...")
+                    self.key_cooldowns[key] = time.time() + 3600
+                    logger.warning("⚠️ Key rate-limited. Cooldown set to 1 hour. Rotating...")
                 else:
                     logger.warning(
                         "⚠️ Gemini error/empty response. Sleeping 10s before retry..."
@@ -465,7 +468,7 @@ class CoreUtilsMixin:
 
             if response_text.startswith("ERROR_CODE_429"):
                 if key:
-                    self.key_cooldowns[key] = time.time() + 1200
+                    self.key_cooldowns[key] = time.time() + 3600
                 attempts += 1
                 continue
 
