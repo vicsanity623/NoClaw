@@ -462,32 +462,52 @@ class CoreUtilsMixin:
 
             if available_keys:
                 key = available_keys[attempts % len(available_keys)]
-                logger.info(f"Attempting Gemini API Key {attempts % len(available_keys) + 1}/{len(available_keys)}")
-                response_text = self._stream_single_llm(prompt, key=key, context=context)
+                logger.info(
+                    f"Attempting Gemini API Key {attempts % len(available_keys) + 1}/{len(available_keys)}"
+                )
+                response_text = self._stream_single_llm(
+                    prompt, key=key, context=context
+                )
             elif is_cloud:
-                logger.warning("⏳ Gemini keys limited. Pivoting to GitHub Models (Phi-4)...")
-                response_text = self._stream_single_llm(prompt, key=None, context=context)
+                logger.warning(
+                    "⏳ Gemini keys limited. Pivoting to GitHub Models (Phi-4)..."
+                )
+                response_text = self._stream_single_llm(
+                    prompt, key=None, context=context
+                )
             else:
                 logger.info("🏠 Using Local Ollama Engine...")
-                response_text = self._stream_single_llm(prompt, key=None, context=context)
+                response_text = self._stream_single_llm(
+                    prompt, key=None, context=context
+                )
 
             if response_text.startswith("ERROR_CODE_429"):
                 if key:
                     self.key_cooldowns[key] = time.time() + 1200
                     logger.warning(f"⚠️ Key {key[-4:]} rate-limited (429). Rotating...")
                 else:
-                    logger.warning("🚫 GitHub Models rate-limited. Sleeping 2 minutes...")
+                    logger.warning(
+                        "🚫 GitHub Models rate-limited. Sleeping 2 minutes..."
+                    )
                     time.sleep(120)
                 attempts += 1
                 continue
 
-            if is_cloud and (not response_text or response_text.startswith("ERROR_CODE_")):
+            if is_cloud and (
+                not response_text or response_text.startswith("ERROR_CODE_")
+            ):
                 if key is not None:
-                    logger.warning("☁️ Gemini failed/limited. Pivoting to GitHub Models (Phi-4) immediately...")
-                    response_text = self._stream_single_llm(prompt, key=None, context=context)
+                    logger.warning(
+                        "☁️ Gemini failed/limited. Pivoting to GitHub Models (Phi-4) immediately..."
+                    )
+                    response_text = self._stream_single_llm(
+                        prompt, key=None, context=context
+                    )
                 if not response_text or response_text.startswith("ERROR_CODE_"):
                     wait_time = 60
-                    logger.warning(f"⚠️ All Cloud Engines failed. Sleeping {wait_time}s to refill tokens...")
+                    logger.warning(
+                        f"⚠️ All Cloud Engines failed. Sleeping {wait_time}s to refill tokens..."
+                    )
                     time.sleep(wait_time)
                     attempts += 1
                     continue
