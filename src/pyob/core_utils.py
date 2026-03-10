@@ -464,7 +464,9 @@ class CoreUtilsMixin:
             # 1. Selection
             if available_keys:
                 key = available_keys[attempts % len(available_keys)]
-                logger.info(f"Attempting Gemini Key {attempts % len(available_keys) + 1}/{len(available_keys)}")
+                logger.info(
+                    f"Attempting Gemini Key {attempts % len(available_keys) + 1}/{len(available_keys)}"
+                )
             elif is_cloud:
                 logger.warning("⏳ Gemini keys limited. Using GitHub Models (Phi-4)...")
             else:
@@ -476,15 +478,23 @@ class CoreUtilsMixin:
             # 3. Cloud Resilience (The Pivot)
             if is_cloud:
                 # If Gemini blipped, try Phi-4 immediately
-                if key and (not response_text or response_text.startswith("ERROR_CODE_")):
+                if key and (
+                    not response_text or response_text.startswith("ERROR_CODE_")
+                ):
                     if "429" in response_text:
                         self.key_cooldowns[key] = time.time() + 1200
-                    logger.warning("☁️ Gemini limited. Pivoting to GitHub Models (Phi-4) immediately...")
-                    response_text = self._stream_single_llm(prompt, key=None, context=context)
+                    logger.warning(
+                        "☁️ Gemini limited. Pivoting to GitHub Models (Phi-4) immediately..."
+                    )
+                    response_text = self._stream_single_llm(
+                        prompt, key=None, context=context
+                    )
 
                 # If BOTH dry, sleep 60s. This is the only path back to the top.
                 if not response_text or response_text.startswith("ERROR_CODE_"):
-                    logger.warning("⚠️ All Cloud Engines exhausted. Refilling token buckets (60s)...")
+                    logger.warning(
+                        "⚠️ All Cloud Engines exhausted. Refilling token buckets (60s)..."
+                    )
                     time.sleep(60)
                     attempts += 1
                     continue
@@ -501,9 +511,9 @@ class CoreUtilsMixin:
             # 5. Validation & Breath
             if validator(response_text):
                 if is_cloud:
-                    time.sleep(5) # Final success breather
+                    time.sleep(5)  # Final success breather
                 return response_text
-            
+
             # 6. Global Machine-Gun Protection
             # If we reached here, the answer was invalid. Wait before trying the NEXT key.
             loop_wait = 15 if is_cloud else 5
