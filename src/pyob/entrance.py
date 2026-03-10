@@ -68,10 +68,21 @@ class EntranceController:
             self.start_dashboard()
 
     def start_dashboard(self):
+        # 1. Save to the internal .pyob folder (Local use)
         obs_path = os.path.join(self.pyob_dir, "observer.html")
         with open(obs_path, "w", encoding="utf-8") as f:
             f.write(OBSERVER_HTML)
 
+        # 2. Save a copy to the root index.html (GitHub Pages use)
+        index_path = os.path.join(self.target_dir, "index.html")
+        try:
+            with open(index_path, "w", encoding="utf-8") as f:
+                f.write(OBSERVER_HTML)
+            logger.info(f"📊 Static HUD generated for GitHub Pages: {index_path}")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not generate root index.html: {e}")
+
+        # 3. Initialize and Start the Live Server
         ObserverHandler.controller = self
 
         def run_server():
