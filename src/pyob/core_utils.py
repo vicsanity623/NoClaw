@@ -488,7 +488,7 @@ class CoreUtilsMixin:
             # 3. Handle Empty or Error Responses (STOPS THE INFINITE LOOP)
             if not response_text or response_text.startswith("ERROR_CODE_"):
                 # If we are in the cloud, we need to wait longer for the token bucket to refill
-                wait_time = 60 if is_cloud else 10
+                wait_time = 90 if is_cloud else 10
                 logger.warning(
                     f"⚠️ API Error/Empty Response. Sleeping {wait_time}s to refill tokens..."
                 )
@@ -499,7 +499,7 @@ class CoreUtilsMixin:
             # 4. Final Validation
             if validator(response_text):
                 if is_cloud:
-                    time.sleep(2)  # Success breather
+                    time.sleep(7)  # Success breather
                 return response_text
 
             logger.warning("LLM response failed internal validation. Retrying in 5s...")
