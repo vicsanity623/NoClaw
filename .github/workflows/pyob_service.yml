@@ -6,8 +6,8 @@ concurrency:
 
 on:
   schedule:
-    - cron: '0 * * * *' # Runs every hour
-  workflow_dispatch:     # Allows manual trigger from your phone
+    - cron: '0 * * * *'
+  workflow_dispatch:
 
 jobs:
   evolve:
@@ -34,22 +34,26 @@ jobs:
           PYOB_GEMINI_KEYS: ${{ secrets.PYOB_GEMINI_KEYS }}
           GITHUB_TOKEN: ${{ secrets.BOT_GITHUB_TOKEN }}
         run: |
-          # 1. Establish the Bot's Identity
           git config --global user.email "pyob-bot@users.noreply.github.com"
           git config --global user.name "pyob-bot"
 
-          # 2. Start the SSH Tunnel (Standard Pinggy Method)
-          # This captures the log to a file so we can find the link later
+          # 1. Start the SSH Tunnel (Fixed redirection)
           ssh -o StrictHostKeyChecking=no -R 80:localhost:5000 a.pinggy.io "printf 'keepalive'" > tunnel.log 2>&1 &
           
-          # 3. Give the tunnel a few seconds to wake up
-          sleep 5
-          
-          # 4. Print the Live URL to the GitHub logs
+          # 2. Give it a moment and then FORCE print the log to see the link
+          sleep 10
           echo "=================================================="
-          echo "🚀 LIVE ARCHITECT HUD URL:"
-          grep -o 'https://[^ ]*\.pinggy.link' tunnel.log || echo "HUD Link is being generated... check logs in a moment."
+          echo "🚀 LIVE HUD TUNNEL (CURRENT RUN):"
+          cat tunnel.log | grep -o 'https://[^ ]*\.pinggy.link' || echo "Link generating... check again in 30s"
           echo "=================================================="
 
-          # 5. Launch the Evolution Engine
+          # 3. Launch the bot
           pyob . --iterations 2
+
+      - name: Deploy Permanent HUD to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: . # The folder where index.html is
+          branch: gh-pages # The branch for GitHub Pages
+          commit-message: "📊 Update Architect HUD [skip ci]"
+          token: ${{ secrets.BOT_GITHUB_TOKEN }}

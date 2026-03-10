@@ -68,10 +68,21 @@ class EntranceController:
             self.start_dashboard()
 
     def start_dashboard(self):
+        # 1. Save to the internal .pyob folder (Local use)
         obs_path = os.path.join(self.pyob_dir, "observer.html")
         with open(obs_path, "w", encoding="utf-8") as f:
             f.write(OBSERVER_HTML)
 
+        # 2. Save a copy to the root index.html (GitHub Pages use)
+        index_path = os.path.join(self.target_dir, "index.html")
+        try:
+            with open(index_path, "w", encoding="utf-8") as f:
+                f.write(OBSERVER_HTML)
+            logger.info(f"📊 Static HUD generated for GitHub Pages: {index_path}")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not generate root index.html: {e}")
+
+        # 3. Initialize and Start the Live Server
         ObserverHandler.controller = self
 
         def run_server():
@@ -582,12 +593,13 @@ class EntranceController:
     def pick_target_file(self) -> str:
         if self.manual_target_file:
             target = self.manual_target_file
-            self.manual_target_file = None  # Clear after use
-            logger.info(f"Ã°Å¸Å½Â¯ Using manually set target file: {target}")
+            self.manual_target_file = None
+            logger.info(f"🎯 Using manual target: {target}")
             return target
 
         analysis = self._read_file(self.analysis_path)
         history = self._read_file(self.history_path) or "No history yet."
+
         last_file = ""
         history_lines = history.strip().split("\n")
         for line in reversed(history_lines):
@@ -598,30 +610,55 @@ class EntranceController:
                     break
 
         prompt = f"""
-Read the ANALYSIS.md and HISTORY.md. Choose ONE relative file path to review next.
-CRITICAL RULES:
-1. DO NOT pick `{last_file}` again. It was just edited.
-2. If logic was recently added to a backend file (like `logic.py`), your MUST pick the UI or Main file (like `main.py`) next to implement a way for the user to use that logic.
-3. If a configuration file (like `theme.py`) was changed, pick a file that depends on it.
-4. Rotate between logic, UI, and styles to ensure the features are actually visible to the user.
+Choose ONE relative file path to review next based on the ANALYSIS.md and HISTORY.md.
+
+STRATEGIC RULES:
+1. DO NOT pick `{last_file}`. It was just edited.
+2. If logic was recently added to a backend file (like `logic.py`), your MUST pick the UI or Main file (like `main.py`) next to implement a way for the user to access it.
+3. If a configuration file was changed, pick a file that depends on it.
+4. Rotate between logic, UI, and styles to ensure features are complete and visible.
+
+OUTPUT FORMAT RULES (MANDATORY):
+- Reply ONLY with the raw relative file path.
+- DO NOT use Markdown, quotes, bold, or explanation.
+- DO NOT say "I suggest...". Just the path.
+
+Example Output:
+src/pyob/core_utils.py
+
 ### Analysis:
 {analysis}
 ### History:
 {history}
-Reply ONLY with the relative file path.
 """
 
         def val(text: str) -> bool:
-            p = text.strip().strip("`").strip()
-            return os.path.exists(os.path.join(self.target_dir, p)) and p != last_file
+            """Smarter validation that extracts a path from conversational AI."""
+            p = text.strip().replace("`", "").replace('"', "").replace("*", "")
 
-        return str(
-            self.llm_engine.get_valid_llm_response(
-                prompt, val, context="Target Selector"
-            )
-            .strip()
-            .strip("`")
+            if " " in p:
+                parts = p.split()
+                for part in parts:
+                    if "/" in part or part.endswith(".py") or part.endswith(".js"):
+                        p = part
+                        break
+
+            exists = os.path.exists(os.path.join(self.target_dir, p))
+            not_duplicate = p != last_file
+            return exists and not_duplicate
+
+        response = self.llm_engine.get_valid_llm_response(
+            prompt, val, context="Target Selector"
         )
+
+        final_path = response.strip().replace("`", "").replace('"', "").replace("*", "")
+        if " " in final_path:
+            for part in final_path.split():
+                if "/" in part or part.endswith(".py"):
+                    final_path = part
+                    break
+
+        return str(final_path)
 
     def build_initial_analysis(self):
         logger.info("⏳ ANALYSIS.md not found. Bootstrapping Deep Symbolic Scan...")
