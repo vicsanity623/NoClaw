@@ -311,6 +311,7 @@ class CoreUtilsMixin:
             url, headers=headers, json=data, stream=True, timeout=220
         )
         if response.status_code != 200:
+            logger.error(f"❌ Gemini API Error {response.status_code}: {response.text}")
             return f"ERROR_CODE_{response.status_code}: {response.text}"
         response_text = ""
         for line in response.iter_lines(decode_unicode=True):
