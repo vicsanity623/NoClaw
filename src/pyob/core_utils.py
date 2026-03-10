@@ -84,10 +84,10 @@ IGNORE_FILES = {
     "PCF.md",
     "PIR.md",
     "build_pyinstaller_multiOS.py",
-    "check.sh",
-    ".pyob_config",
+    "check.sh",  # Don't let AI rewrite the validation script
+    ".pyob_config",  # Don't let AI see your API keys
     ".DS_Store",
-    ".gitignore",
+    ".gitignore",  # Prevent AI from messing with git rules
     "pyob.icns",
     "pyob.ico",
     "pyob.png",
@@ -95,7 +95,6 @@ IGNORE_FILES = {
     "README.md",
     "DOCUMENTATION.md",
     "observer.html",
-    "index.html",  # remove this if you want to scan your index.html, this is for github pyob-bot to ignore its github pages index.html it creates..
 }
 SUPPORTED_EXTENSIONS = {".py", ".js", ".ts", ".html", ".css", ".json", ".sh"}
 
@@ -311,7 +310,6 @@ class CoreUtilsMixin:
             url, headers=headers, json=data, stream=True, timeout=220
         )
         if response.status_code != 200:
-            logger.error(f"❌ Gemini API Error {response.status_code}: {response.text}")
             return f"ERROR_CODE_{response.status_code}: {response.text}"
         response_text = ""
         for line in response.iter_lines(decode_unicode=True):
@@ -320,6 +318,7 @@ class CoreUtilsMixin:
                     chunk_data = json.loads(line[6:])
                     text = chunk_data["candidates"][0]["content"]["parts"][0]["text"]
                     on_chunk()
+                    print(text, end="", flush=True)
                     response_text += text
                 except (KeyError, IndexError, json.JSONDecodeError):
                     pass
@@ -338,53 +337,11 @@ class CoreUtilsMixin:
                 content = chunk.get("message", {}).get("content", "")
                 if content:
                     on_chunk()
+                    print(content, end="", flush=True)
                     response_text += content
         except Exception as e:
             logger.error(f"Ollama Error: {e}")
         return response_text
-
-    def stream_github_models(self, prompt: str, on_chunk) -> str:
-        """Fallback to GitHub Models API (Phi-4)."""
-        token = os.environ.get("GITHUB_TOKEN")
-        if not token:
-            return "ERROR_CODE_GITHUB_TOKEN_MISSING"
-
-        endpoint = "https://models.inference.ai.azure.com/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-        }
-        data = {
-            "messages": [{"role": "user", "content": prompt}],
-            "model": "Phi-4",
-            "stream": True,
-            "temperature": 0.1,
-        }
-
-        full_text = ""
-        try:
-            response = requests.post(
-                endpoint, headers=headers, json=data, stream=True, timeout=120
-            )
-            if response.status_code != 200:
-                return f"ERROR_CODE_{response.status_code}"
-
-            for line in response.iter_lines():
-                if line:
-                    decoded_line = line.decode("utf-8").replace("data: ", "")
-                    if decoded_line == "[DONE]":
-                        break
-                    try:
-                        chunk = json.loads(decoded_line)
-                        content = chunk["choices"][0]["delta"].get("content", "")
-                        if content:
-                            full_text += content
-                            on_chunk()
-                    except Exception:
-                        continue
-            return full_text
-        except Exception as e:
-            return f"ERROR_CODE_EXCEPTION: {e}"
 
     def _stream_single_llm(
         self, prompt: str, key: str | None = None, context: str = ""
@@ -392,7 +349,6 @@ class CoreUtilsMixin:
         input_tokens = len(prompt) // 4
         first_chunk_received = [False]
         gen_start_time = time.time()
-        is_cloud = os.environ.get("GITHUB_ACTIONS") == "true"
 
         def spinner():
             spinner_chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
@@ -402,6 +358,7 @@ class CoreUtilsMixin:
                 elapsed = time.time() - gen_start_time
                 expected_time = max(1, input_tokens / 12.0)
                 progress = min(1.0, elapsed / expected_time)
+
                 bar_len = max(10, cols - 65)
                 filled = int(progress * bar_len)
                 bar = "█" * filled + "░" * (bar_len - filled)
@@ -419,24 +376,26 @@ class CoreUtilsMixin:
                 first_chunk_received[0] = True
                 sys.stdout.write("\r\033[K")
                 sys.stdout.flush()
-                source = f"Gemini ...{key[-4:]}" if key else "GitHub Models"
-                if not key and not is_cloud:
-                    source = "Local Ollama"
+                source = f"Gemini ...{key[-4:]}" if key else "Local Ollama"
                 print(f"🤖 AI Output ({source}): ", end="", flush=True)
 
         response_text = ""
         try:
             if key is not None:
                 response_text = self.stream_gemini(prompt, key, on_chunk)
-            elif is_cloud:
-                response_text = self.stream_github_models(prompt, on_chunk)
             else:
+                if os.environ.get("GITHUB_ACTIONS") == "true":
+                    first_chunk_received[0] = True
+                    return "ERROR_CODE_CLOUD_OLLAMA_BLOCKED"
+
                 response_text = self.stream_ollama(prompt, on_chunk)
         except Exception as e:
             first_chunk_received[0] = True
             return f"ERROR_CODE_EXCEPTION: {e}"
 
-        first_chunk_received[0] = True
+        if not first_chunk_received[0]:
+            first_chunk_received[0] = True
+
         final_time = time.time() - gen_start_time
         if response_text and not response_text.startswith("ERROR_CODE_"):
             print(
@@ -445,73 +404,84 @@ class CoreUtilsMixin:
         return response_text
 
     def get_valid_llm_response(self, prompt: str, validator, context: str = "") -> str:
-        """
-        Titanium LLM Orchestrator (v0.3.5):
-        - Sequential Engine Priority: Gemini -> GitHub Models -> Sleep.
-        - Mandatory 'Spam Gate' ensures at least 15s between ANY rotation.
-        - Mandatory 'Bucket Refill' ensures 60s sleep on all cloud errors.
-        """
         attempts = 0
+        use_ollama = False
         is_cloud = os.environ.get("GITHUB_ACTIONS") == "true"
-        logger.info(f"📊 Engine check: Found {len(self.key_cooldowns)} Gemini keys.")
+
+        logger.info(
+            f"📊 Engine check: Found {len(self.key_cooldowns)} Gemini API keys."
+        )
 
         while True:
             key = None
             now = time.time()
-            available_keys = [k for k, cd in self.key_cooldowns.items() if now > cd]
+            available_keys = [
+                k for k, cooldown in self.key_cooldowns.items() if now > cooldown
+            ]
+            if not available_keys:
+                if is_cloud:
+                    wait_times = [
+                        cooldown - now for cooldown in self.key_cooldowns.values()
+                    ]
+                    sleep_duration = max(
+                        10, min(min(wait_times) if wait_times else 120, 1200)
+                    )
+                    logger.warning(
+                        f"⏳ CLOUD NOTICE: All keys rate-limited. Retrying Gemini in {int(sleep_duration)}s..."
+                    )
+                    time.sleep(sleep_duration)
+                    continue
 
-            # --- STEP 1: ENGINE SELECTION ---
-            if available_keys:
+                if not use_ollama:
+                    logger.warning(
+                        "🚫 All Gemini keys rate-limited. Falling back to Local Ollama."
+                    )
+                    use_ollama = True
+            else:
+                use_ollama = False
                 key = available_keys[attempts % len(available_keys)]
                 logger.info(
-                    f"Attempting Gemini Key {attempts % len(available_keys) + 1}/{len(available_keys)}"
+                    f"Attempting Gemini API Key {attempts % len(available_keys) + 1}/{len(available_keys)}"
                 )
-            elif is_cloud:
-                logger.warning(
-                    "⏳ Gemini limited. Pivoting to GitHub Models (Phi-4)..."
-                )
-            else:
-                logger.info("🏠 Using Local Ollama Engine...")
 
-            # --- STEP 2: SINGLE EXECUTION ---
+            if use_ollama:
+                logger.info("Using Local Ollama Engine...")
+
             response_text = self._stream_single_llm(prompt, key=key, context=context)
 
-            # --- STEP 3: POST-EXECUTION SAFETY GATE ---
+            if is_cloud and (
+                response_text.startswith("ERROR_CODE_") or not response_text.strip()
+            ):
+                if "429" in response_text and key:
+                    self.key_cooldowns[key] = time.time() + 1200
+                    logger.warning("⚠️ Key rate-limited. Rotating...")
+                else:
+                    logger.warning(
+                        "⚠️ Gemini error/empty response. Sleeping 10s before retry..."
+                    )
+                    time.sleep(10)
+                attempts += 1
+                continue
 
-            # Handle Rate Limits (429)
-            if "429" in response_text or "QUOTA_EXCEEDED" in response_text:
+            if response_text.startswith("ERROR_CODE_429"):
                 if key:
                     self.key_cooldowns[key] = time.time() + 1200
-                    logger.warning(f"⚠️ Key {key[-4:]} rate-limited. 20m cooldown.")
-                else:
-                    logger.warning("🚫 GitHub Models rate-limited. Sleeping 2m...")
-                    time.sleep(120)
-
-                attempts += 1
-                time.sleep(10)  # Anti-spam breather
-                continue
-
-            # Handle Empty Responses (Mandatory Bucket Refill)
-            if not response_text or response_text.startswith("ERROR_CODE_"):
-                wait = 60 if is_cloud else 10
-                logger.warning(
-                    f"⚠️ API Error/Empty. Mandatory {wait}s bucket refill nap..."
-                )
-                time.sleep(wait)
                 attempts += 1
                 continue
 
-            # --- STEP 4: VALIDATION ---
+            if response_text.startswith("ERROR_CODE_") or not response_text.strip():
+                attempts += 1
+                continue
+
             if validator(response_text):
                 if is_cloud:
-                    time.sleep(5)  # Success breather
+                    time.sleep(2)
                 return response_text
             else:
-                # If the AI answer was garbage, wait before next key.
-                wait = 15 if is_cloud else 5
-                logger.warning(f"⚠️ Response invalid. Backing off {wait}s...")
-                time.sleep(wait)
+                logger.warning("LLM response failed validation. Retrying...")
                 attempts += 1
+                if is_cloud:
+                    time.sleep(5)
 
     def _get_user_prompt_augmentation(self, initial_text: str = "") -> str:
         import tempfile
@@ -748,6 +718,7 @@ class CoreUtilsMixin:
                     with open(target, "r", encoding="utf-8", errors="ignore") as f:
                         content = f.read()
                         if target.endswith(".py"):
+                            # Resilient check for both quote styles
                             if (
                                 'if __name__ == "__main__":' in content
                                 or "if __name__ == '__main__':" in content
@@ -776,6 +747,7 @@ class CoreUtilsMixin:
                             file_path, "r", encoding="utf-8", errors="ignore"
                         ) as f_obj:
                             content = f_obj.read()
+                            # Resilient check for both quote styles in fallback scan
                             if (
                                 'if __name__ == "__main__":' in content
                                 or "if __name__ == '__main__':" in content
