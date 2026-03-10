@@ -441,13 +441,15 @@ class CoreUtilsMixin:
         first_chunk_received[0] = True
         final_time = time.time() - gen_start_time
         if response_text and not response_text.startswith("ERROR_CODE_"):
-            print(f"\n\n[✅ Generation Complete: ~{len(response_text) // 4} tokens in {final_time:.1f}s]")
+            print(
+                f"\n\n[✅ Generation Complete: ~{len(response_text) // 4} tokens in {final_time:.1f}s]"
+            )
         return response_text
 
     def get_valid_llm_response(self, prompt: str, validator, context: str = "") -> str:
         attempts = 0
         is_cloud = os.environ.get("GITHUB_ACTIONS") == "true"
-        
+
         while True:
             key = None
             now = time.time()
@@ -456,9 +458,13 @@ class CoreUtilsMixin:
             # 1. Select Engine
             if available_keys:
                 key = available_keys[attempts % len(available_keys)]
-                logger.info(f"Attempting Gemini API Key {attempts % len(available_keys) + 1}/{len(available_keys)}")
+                logger.info(
+                    f"Attempting Gemini API Key {attempts % len(available_keys) + 1}/{len(available_keys)}"
+                )
             elif is_cloud:
-                logger.warning("⏳ Gemini keys limited. Pivoting to GitHub Models (Phi-4)...")
+                logger.warning(
+                    "⏳ Gemini keys limited. Pivoting to GitHub Models (Phi-4)..."
+                )
                 # key remains None, which triggers stream_github_models in _stream_single_llm
             else:
                 logger.info("🏠 Using Local Ollama Engine...")
@@ -472,22 +478,26 @@ class CoreUtilsMixin:
                     logger.warning(f"⚠️ Key {key[-4:]} rate-limited. Rotating...")
                 else:
                     # If GitHub Models is also rate-limited
-                    logger.warning("🚫 All cloud engines limited. Sleeping 5 minutes...")
+                    logger.warning(
+                        "🚫 All cloud engines limited. Sleeping 5 minutes..."
+                    )
                     time.sleep(300)
                 attempts += 1
                 continue
 
             # 3. Handle Empty or Error Responses (STOPS THE INFINITE LOOP)
             if not response_text or response_text.startswith("ERROR_CODE_"):
-                logger.warning(f"⚠️ API Error/Empty Response. Sleeping 10s before retry...")
-                time.sleep(10) # MANDATORY SLEEP to prevent tight-looping
+                logger.warning(
+                    "⚠️ API Error/Empty Response. Sleeping 10s before retry..."
+                )
+                time.sleep(10)  # MANDATORY SLEEP to prevent tight-looping
                 attempts += 1
                 continue
 
             # 4. Final Validation
             if validator(response_text):
                 if is_cloud:
-                    time.sleep(2) # Success breather
+                    time.sleep(2)  # Success breather
                 return response_text
 
             logger.warning("LLM response failed internal validation. Retrying in 5s...")
