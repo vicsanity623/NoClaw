@@ -92,6 +92,7 @@ pip install -e .
 ```
 2. **Validate**: `./check.sh`
 3. **Launch**: `pyob .`
+4. **Dashboard**: `observer.HTML` or `http://localhost:5000/`
 ---
 
 ### 🎯 Quick Start Workflow
