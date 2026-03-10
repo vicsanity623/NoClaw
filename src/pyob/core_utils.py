@@ -489,8 +489,10 @@ class CoreUtilsMixin:
             if not response_text or response_text.startswith("ERROR_CODE_"):
                 # If we are in the cloud, we need to wait longer for the token bucket to refill
                 wait_time = 60 if is_cloud else 10
-                logger.warning(f"⚠️ API Error/Empty Response. Sleeping {wait_time}s to refill tokens...")
-                time.sleep(wait_time) 
+                logger.warning(
+                    f"⚠️ API Error/Empty Response. Sleeping {wait_time}s to refill tokens..."
+                )
+                time.sleep(wait_time)
                 attempts += 1
                 continue
 
