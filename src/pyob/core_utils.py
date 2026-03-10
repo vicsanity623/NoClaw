@@ -446,65 +446,52 @@ class CoreUtilsMixin:
         return response_text
 
     def get_valid_llm_response(self, prompt: str, validator, context: str = "") -> str:
-        """
-        Industrial Resilience Loop (v0.3.4):
-        - PHYSICALLY IMPOSSIBLE to machine-gun.
-        - Mandatory sleep on EVERY rotation.
-        - Simplified logic path.
-        """
         attempts = 0
         is_cloud = os.environ.get("GITHUB_ACTIONS") == "true"
         
         while True:
             key = None
             now = time.time()
+            # 1. Selection: Pick a Gemini key or use GitHub Models in Cloud
             available_keys = [k for k, cd in self.key_cooldowns.items() if now > cd]
 
-            # 1. Selection
             if available_keys:
                 key = available_keys[attempts % len(available_keys)]
                 logger.info(f"Attempting Gemini Key {attempts % len(available_keys) + 1}/{len(available_keys)}")
-                response_text = self._stream_single_llm(prompt, key=key, context=context)
             elif is_cloud:
                 logger.warning("⏳ Gemini keys limited. Using GitHub Models (Phi-4)...")
-                response_text = self._stream_single_llm(prompt, key=None, context=context)
+                # key stays None, which triggers stream_github_models in _stream_single_llm
             else:
                 logger.info("🏠 Using Local Ollama Engine...")
-                response_text = self._stream_single_llm(prompt, key=None, context=context)
 
-            # 2. Rate Limit (429) Handling
-            if "429" in response_text or "QUOTA_EXCEEDED" in response_text:
-                if key:
-                    self.key_cooldowns[key] = time.time() + 1200
-                    logger.warning(f"⚠️ Key rate-limited. 20m timeout applied.")
-                else:
-                    logger.warning("🚫 GitHub Models limited. Sleeping 60s...")
-                    time.sleep(60)
-                
-                attempts += 1
-                time.sleep(5) # Mandatory rotation gap
-                continue
+            # 2. Execution: One call per loop
+            response_text = self._stream_single_llm(prompt, key=key, context=context)
 
-            # 3. Empty/Error Handling (The Machine Gun Killer)
+            # 3. Error Handling: IF IT FAILED, WE MUST SLEEP.
             if not response_text or response_text.startswith("ERROR_CODE_"):
-                # If we get here, the API blipped or the file was too big.
-                # WE MUST SLEEP. No exceptions.
+                # Handle Rate Limit (429)
+                if "429" in response_text and key:
+                    self.key_cooldowns[key] = time.time() + 1200
+                    logger.warning(f"⚠️ Key rate-limited. 20m cooldown applied.")
+                
+                # Mandatory Wait for ALL errors (Stops the Machine Gun)
+                # 30s for cloud ensures we refill the token bucket
                 wait = 30 if is_cloud else 5
-                logger.warning(f"⚠️ API Blip/Empty. Mandatory {wait}s bucket refill sleep...")
+                logger.warning(f"⚠️ API Error/Empty. Sleeping {wait}s before next attempt...")
                 time.sleep(wait)
                 attempts += 1
                 continue
 
-            # 4. Validation
+            # 4. Validation: Check if the AI's answer makes sense
             if validator(response_text):
-                if is_cloud: time.sleep(5) # Success breather
+                if is_cloud: 
+                    time.sleep(5) # Success breather
                 return response_text
-            
-            # 5. Failed Validation (The AI was too talkative)
-            wait = 15 if is_cloud else 2
-            logger.warning(f"⚠️ Invalid Response. Backing off {wait}s...")
-            time.sleep(wait)
-            attempts += 1
+            else:
+                # If the AI was 'talkative' and failed validation, wait before retrying
+                logger.warning("⚠️ Response invalid. Backing off 15s...")
+                time.sleep(15)
+                attempts += 1
 
     def _get_user_prompt_augmentation(self, initial_text: str = "") -> str:
         import tempfile
