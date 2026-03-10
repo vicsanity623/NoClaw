@@ -455,7 +455,9 @@ class CoreUtilsMixin:
         attempts = 0
         is_cloud = os.environ.get("GITHUB_ACTIONS") == "true"
 
-        logger.info(f"📊 Engine check: Found {len(self.key_cooldowns)} Gemini API keys.")
+        logger.info(
+            f"📊 Engine check: Found {len(self.key_cooldowns)} Gemini API keys."
+        )
 
         while True:
             key = None
@@ -464,7 +466,9 @@ class CoreUtilsMixin:
 
             if available_keys:
                 key = available_keys[attempts % len(available_keys)]
-                logger.info(f"Attempting Gemini API Key {attempts % len(available_keys) + 1}/{len(available_keys)}")
+                logger.info(
+                    f"Attempting Gemini API Key {attempts % len(available_keys) + 1}/{len(available_keys)}"
+                )
             elif is_cloud:
                 logger.warning("⏳ Gemini keys limited. Using GitHub Models (Phi-4)...")
             else:
@@ -472,18 +476,26 @@ class CoreUtilsMixin:
 
             response_text = self._stream_single_llm(prompt, key=key, context=context)
 
-            if is_cloud and (not response_text or response_text.startswith("ERROR_CODE_")):
+            if is_cloud and (
+                not response_text or response_text.startswith("ERROR_CODE_")
+            ):
                 if key is not None:
                     if "429" in response_text:
                         self.key_cooldowns[key] = time.time() + 1200
                         logger.warning(f"⚠️ Key {key[-4:]} rate-limited. Pivoting...")
-                    
-                    logger.warning("☁️ Gemini blipped/limited. Pivoting to GitHub Models (Phi-4) immediately...")
-                    response_text = self._stream_single_llm(prompt, key=None, context=context)
+
+                    logger.warning(
+                        "☁️ Gemini blipped/limited. Pivoting to GitHub Models (Phi-4) immediately..."
+                    )
+                    response_text = self._stream_single_llm(
+                        prompt, key=None, context=context
+                    )
 
                 if not response_text or response_text.startswith("ERROR_CODE_"):
                     wait_time = 60
-                    logger.warning(f"⚠️ All Cloud Engines exhausted. Sleeping {wait_time}s to refill tokens...")
+                    logger.warning(
+                        f"⚠️ All Cloud Engines exhausted. Sleeping {wait_time}s to refill tokens..."
+                    )
                     time.sleep(wait_time)
                     attempts += 1
                     continue
@@ -493,7 +505,9 @@ class CoreUtilsMixin:
                     self.key_cooldowns[key] = time.time() + 1200
                     logger.warning(f"⚠️ Key {key[-4:]} rate-limited (429). Rotating...")
                 else:
-                    logger.warning("🚫 GitHub Models rate-limited. Sleeping 2 minutes...")
+                    logger.warning(
+                        "🚫 GitHub Models rate-limited. Sleeping 2 minutes..."
+                    )
                     time.sleep(120)
                 attempts += 1
                 continue
