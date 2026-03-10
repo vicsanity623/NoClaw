@@ -12,7 +12,12 @@ dependencies = [
     "requests",
     "charset-normalizer",
     "chardet",
-    "ollama"
+    "ollama",
+    "ruff",
+    "mypy",
+    "pytest",
+    "types-requests",
+    "types-chardet"
 ]
 
 [project.scripts]
