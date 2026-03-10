@@ -84,10 +84,10 @@ IGNORE_FILES = {
     "PCF.md",
     "PIR.md",
     "build_pyinstaller_multiOS.py",
-    "check.sh",  # Don't let AI rewrite the validation script
-    ".pyob_config",  # Don't let AI see your API keys
+    "check.sh",
+    ".pyob_config",
     ".DS_Store",
-    ".gitignore",  # Prevent AI from messing with git rules
+    ".gitignore",
     "pyob.icns",
     "pyob.ico",
     "pyob.png",
@@ -349,7 +349,6 @@ class CoreUtilsMixin:
         if not token:
             return "ERROR_CODE_GITHUB_TOKEN_MISSING"
 
-        # GitHub Models use the Azure AI Inference endpoint
         endpoint = "https://models.inference.ai.azure.com/chat/completions"
         headers = {
             "Authorization": f"Bearer {token}",
@@ -430,7 +429,6 @@ class CoreUtilsMixin:
             if key is not None:
                 response_text = self.stream_gemini(prompt, key, on_chunk)
             elif is_cloud:
-                # Force GitHub Models in cloud, skip Ollama entirely
                 response_text = self.stream_github_models(prompt, on_chunk)
             else:
                 response_text = self.stream_ollama(prompt, on_chunk)
@@ -455,7 +453,6 @@ class CoreUtilsMixin:
             now = time.time()
             available_keys = [k for k, cd in self.key_cooldowns.items() if now > cd]
 
-            # 1. Select Engine
             if available_keys:
                 key = available_keys[attempts % len(available_keys)]
                 logger.info(
@@ -465,46 +462,39 @@ class CoreUtilsMixin:
                 logger.warning(
                     "⏳ Gemini keys limited. Pivoting to GitHub Models (Phi-4)..."
                 )
-                # key remains None, which triggers stream_github_models in _stream_single_llm
             else:
                 logger.info("🏠 Using Local Ollama Engine...")
 
             response_text = self._stream_single_llm(prompt, key=key, context=context)
 
-            # 2. Handle Rate Limits (429)
-            if response_text.startswith("ERROR_CODE_429"):
-                if key:
+            if is_cloud and (not response_text or response_text.startswith("ERROR_CODE_")):
+                if "429" in response_text and key:
                     self.key_cooldowns[key] = time.time() + 1200
-                    logger.warning(f"⚠️ Key {key[-4:]} rate-limited. Rotating...")
-                else:
-                    # If GitHub Models is also rate-limited
-                    logger.warning(
-                        "🚫 All cloud engines limited. Sleeping 5 minutes..."
-                    )
-                    time.sleep(300)
+                    logger.warning(f"⚠️ Key rate-limited. Rotating...")
+                
+                logger.warning("☁️ Gemini failed/limited. Pivoting to GitHub Models (Phi-4) immediately...")
+                response_text = self._stream_single_llm(prompt, key=None, context=context)
+                
+                if not response_text or response_text.startswith("ERROR_CODE_"):
+                    logger.warning(f"⚠️ All engines failed. Sleeping 90s to refill all token buckets...")
+                    time.sleep(90)
+                    attempts += 1
+                    continue
+
+            if response_text.startswith("ERROR_CODE_429"):
+                if key: self.key_cooldowns[key] = time.time() + 1200
                 attempts += 1
                 continue
 
-            # 3. Handle Empty or Error Responses (STOPS THE INFINITE LOOP)
             if not response_text or response_text.startswith("ERROR_CODE_"):
-                # If we are in the cloud, we need to wait longer for the token bucket to refill
-                wait_time = 90 if is_cloud else 10
-                logger.warning(
-                    f"⚠️ API Error/Empty Response. Sleeping {wait_time}s to refill tokens..."
-                )
-                time.sleep(wait_time)
                 attempts += 1
+                time.sleep(10)
                 continue
 
-            # 4. Final Validation
             if validator(response_text):
                 if is_cloud:
-                    time.sleep(7)  # Success breather
+                    time.sleep(7)
                 return response_text
-
-            logger.warning("LLM response failed internal validation. Retrying in 5s...")
-            time.sleep(5)
-            attempts += 1
 
     def _get_user_prompt_augmentation(self, initial_text: str = "") -> str:
         import tempfile
@@ -741,7 +731,6 @@ class CoreUtilsMixin:
                     with open(target, "r", encoding="utf-8", errors="ignore") as f:
                         content = f.read()
                         if target.endswith(".py"):
-                            # Resilient check for both quote styles
                             if (
                                 'if __name__ == "__main__":' in content
                                 or "if __name__ == '__main__':" in content
@@ -770,7 +759,6 @@ class CoreUtilsMixin:
                             file_path, "r", encoding="utf-8", errors="ignore"
                         ) as f_obj:
                             content = f_obj.read()
-                            # Resilient check for both quote styles in fallback scan
                             if (
                                 'if __name__ == "__main__":' in content
                                 or "if __name__ == '__main__':" in content
