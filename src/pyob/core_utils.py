@@ -456,7 +456,9 @@ class CoreUtilsMixin:
 
             if available_keys:
                 key = available_keys[attempts % len(available_keys)]
-                logger.info(f"Attempting Gemini API Key {attempts % len(available_keys) + 1}/{len(available_keys)}")
+                logger.info(
+                    f"Attempting Gemini API Key {attempts % len(available_keys) + 1}/{len(available_keys)}"
+                )
             elif is_cloud:
                 logger.warning("⏳ Gemini keys limited. Using GitHub Models (Phi-4)...")
             else:
@@ -465,15 +467,23 @@ class CoreUtilsMixin:
             response_text = self._stream_single_llm(prompt, key=key, context=context)
 
             if is_cloud:
-                if key and (not response_text or response_text.startswith("ERROR_CODE_")):
+                if key and (
+                    not response_text or response_text.startswith("ERROR_CODE_")
+                ):
                     if "429" in response_text:
                         self.key_cooldowns[key] = time.time() + 1200
-                    logger.warning("☁️ Gemini failed/limited. Pivoting to GitHub Models (Phi-4)...")
-                    response_text = self._stream_single_llm(prompt, key=None, context=context)
+                    logger.warning(
+                        "☁️ Gemini failed/limited. Pivoting to GitHub Models (Phi-4)..."
+                    )
+                    response_text = self._stream_single_llm(
+                        prompt, key=None, context=context
+                    )
 
                 if not response_text or response_text.startswith("ERROR_CODE_"):
                     wait = 60
-                    logger.warning(f"⚠️ All engines exhausted. Sleeping {wait}s for refill...")
+                    logger.warning(
+                        f"⚠️ All engines exhausted. Sleeping {wait}s for refill..."
+                    )
                     time.sleep(wait)
                     attempts += 1
                     continue
@@ -491,7 +501,9 @@ class CoreUtilsMixin:
                 return response_text
 
             loop_wait = 15 if is_cloud else 2
-            logger.warning(f"⚠️ Attempt failed. Mandatory {loop_wait}s breather before next rotation...")
+            logger.warning(
+                f"⚠️ Attempt failed. Mandatory {loop_wait}s breather before next rotation..."
+            )
             time.sleep(loop_wait)
             attempts += 1
 
