@@ -467,16 +467,24 @@ class CoreUtilsMixin:
 
             response_text = self._stream_single_llm(prompt, key=key, context=context)
 
-            if is_cloud and (not response_text or response_text.startswith("ERROR_CODE_")):
+            if is_cloud and (
+                not response_text or response_text.startswith("ERROR_CODE_")
+            ):
                 if "429" in response_text and key:
                     self.key_cooldowns[key] = time.time() + 1200
-                    logger.warning(f"⚠️ Key rate-limited. Rotating...")
-                
-                logger.warning("☁️ Gemini failed/limited. Pivoting to GitHub Models (Phi-4) immediately...")
-                response_text = self._stream_single_llm(prompt, key=None, context=context)
-                
+                    logger.warning("⚠️ Key rate-limited. Rotating...")
+
+                logger.warning(
+                    "☁️ Gemini failed/limited. Pivoting to GitHub Models (Phi-4) immediately..."
+                )
+                response_text = self._stream_single_llm(
+                    prompt, key=None, context=context
+                )
+
                 if not response_text or response_text.startswith("ERROR_CODE_"):
-                    logger.warning(f"⚠️ All engines failed. Sleeping 90s to refill all token buckets...")
+                    logger.warning(
+                        "⚠️ All engines failed. Sleeping 90s to refill all token buckets..."
+                    )
                     time.sleep(90)
                     attempts += 1
                     continue
