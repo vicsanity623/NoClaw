@@ -95,6 +95,7 @@ IGNORE_FILES = {
     "README.md",
     "DOCUMENTATION.md",
     "observer.html",
+    "index.html", # remove this if you want to scan your index.html, this is for github pyob-bot to ignore its github pages index.html it creates..
 }
 SUPPORTED_EXTENSIONS = {".py", ".js", ".ts", ".html", ".css", ".json", ".sh"}
 
