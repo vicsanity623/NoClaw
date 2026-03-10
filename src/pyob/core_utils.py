@@ -438,7 +438,8 @@ class CoreUtilsMixin:
 
             # 4. Validation
             if validator(response_text):
-                if is_cloud: time.sleep(5) # Success breather
+                if is_cloud:
+                    time.sleep(5) # Success breather
                 return response_text
             else:
                 # Failed validation (AI was too chatty). Wait before next key.
