@@ -94,9 +94,9 @@ class EntranceController:
         abs_path = os.path.join(self.target_dir, file_path)
         if os.path.exists(abs_path):
             self.manual_target_file = file_path
-            logger.info(f"Ã°Å¸Å½Â¯ Manual target set for next iteration: {file_path}")
+            logger.info(f"Manual target set for next iteration: {file_path}")
         else:
-            logger.warning(f"Ã¢ Å Manual target file not found: {file_path}")
+            logger.warning(f"Manual target file not found: {file_path}")
 
     def sync_with_remote(self) -> bool:
         """Fetches remote updates and merges main if we are behind."""
