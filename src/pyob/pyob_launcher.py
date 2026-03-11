@@ -140,6 +140,18 @@ def main():
             input("\nPress Enter to exit...")
         sys.exit(1)
 
+    # --- NEW: CLOUD GIT CONFIGURATION FIX ---
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        # 1. Fix the "dubious ownership" block for Docker volumes
+        subprocess.run(["git", "config", "--global", "--add", "safe.directory", "*"], capture_output=True)
+        
+        # 2. Auto-set Bot Identity (Prevents "Author unknown" errors for Marketplace users)
+        check_name = subprocess.run(["git", "config", "user.name"], capture_output=True, text=True)
+        if not check_name.stdout.strip():
+            subprocess.run(["git", "config", "--global", "user.name", "pyob-bot"], capture_output=True)
+            subprocess.run(["git", "config", "--global", "user.email", "pyob-bot@users.noreply.github.com"], capture_output=True)
+    # ----------------------------------------
+
     print(f"\n🚀 Starting PYOB on: {target_dir}")
     print(f"🧠 Gemini Model: {os.environ['PYOB_GEMINI_MODEL']}")
     print(f"🏠 Local Model:  {os.environ['PYOB_LOCAL_MODEL']}")
