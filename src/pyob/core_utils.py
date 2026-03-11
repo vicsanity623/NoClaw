@@ -512,7 +512,8 @@ class CoreUtilsMixin:
 
             # --- PHASE 4: VALIDATION ---
             if validator(response_text):
-                if is_cloud: time.sleep(2)
+                if is_cloud:
+                    time.sleep(2)
                 return response_text
             else:
                 # Cleanup hallucinated conversational filler
