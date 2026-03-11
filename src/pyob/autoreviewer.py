@@ -308,7 +308,8 @@ class AutoReviewer(
                         print(f"\033[91m{clean_line}\033[0m")
                     elif clean_line.startswith("@@"):
                         print(f"\033[94m{clean_line}\033[0m")
-                    else: print(clean_line)
+                    else:
+                        print(clean_line)
                 
                 user_choice = self.get_user_approval(
                     "Hit ENTER to APPLY, type 'FULL_DIFF', 'EDIT_CODE', 'EDIT_XML', 'REGENERATE', or 'SKIP'.",
