@@ -378,34 +378,40 @@ class CoreUtilsMixin:
 
         full_text = ""
         try:
-            # 2. Perform the request using the variables now guaranteed to be in scope
+            # 2. Perform the request
             response = requests.post(
                 endpoint, headers=headers, json=data, stream=True, timeout=120
             )
 
+            # --- DEBUG: EXTENDED ERROR LOGGING ---
             if response.status_code != 200:
-                logger.error(
-                    f"❌ GitHub Models ({actual_model}) Error {response.status_code}: {response.text}"
-                )
+                logger.error(f"❌ GitHub Models ({actual_model}) Request Failed!")
+                logger.error(f"❌ Status Code: {response.status_code}")
+                # Azure/GitHub Models returns detailed error JSON in the body
+                logger.error(f"❌ Response Body: {response.text}") 
                 return f"ERROR_CODE_{response.status_code}"
+            # -------------------------------------
 
             for line in response.iter_lines():
                 if line:
                     decoded = line.decode("utf-8").replace("data: ", "")
                     if decoded == "[DONE]":
                         break
-                    try:
-                        chunk = json.loads(decoded)
-                        content = chunk["choices"][0]["delta"].get("content", "")
-                        if content:
-                            full_text += content
-                            on_chunk()
-                    except Exception:
-                        continue
+                    if decoded.startswith("{"):
+                        try:
+                            chunk = json.loads(decoded)
+                            # Standard OpenAI/Azure response format
+                            content = chunk["choices"][0]["delta"].get("content", "")
+                            if content:
+                                full_text += content
+                                on_chunk()
+                        except (KeyError, json.JSONDecodeError) as e:
+                            logger.warning(f"⚠️ JSON parsing error in chunk: {e}")
+                            continue
             return full_text
         except Exception as e:
-            logger.error(f"❌ GitHub Models Exception: {e}")
-            return f"ERROR_CODE_EXCEPTION: {e}"
+            logger.error(f"❌ GitHub Models Exception: {type(e).__name__} - {str(e)}")
+            return f"ERROR_CODE_EXCEPTION: {str(e)}"
 
     def _stream_single_llm(
         self,
