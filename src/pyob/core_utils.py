@@ -16,9 +16,11 @@ import tty
 import requests
 
 try:
-    import ollama
-
-    OLLAMA_AVAILABLE = True
+    if os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true" or "GITHUB_RUN_ID" in os.environ:
+        OLLAMA_AVAILABLE = False
+    else:
+        import ollama
+        OLLAMA_AVAILABLE = True
 except ImportError:
     OLLAMA_AVAILABLE = False
     print("Warning: 'ollama' package not found. Local LLM fallback disabled.")
@@ -84,10 +86,10 @@ IGNORE_FILES = {
     "PCF.md",
     "PIR.md",
     "build_pyinstaller_multiOS.py",
-    "check.sh",  # Don't let AI rewrite the validation script
-    ".pyob_config",  # Don't let AI see your API keys
+    "check.sh",
+    ".pyob_config",
     ".DS_Store",
-    ".gitignore",  # Prevent AI from messing with git rules
+    ".gitignore",
     "pyob.icns",
     "pyob.ico",
     "pyob.png",
@@ -100,8 +102,6 @@ SUPPORTED_EXTENSIONS = {".py", ".js", ".ts", ".html", ".css", ".json", ".sh"}
 
 
 class CyberpunkFormatter(logging.Formatter):
-    """Formatter that wraps text based on terminal width and adds neon colors."""
-
     GREEN = "\033[92m"
     YELLOW = "\033[93m"
     RED = "\033[91m"
@@ -148,7 +148,7 @@ class CoreUtilsMixin:
     key_cooldowns: dict[str, float]
 
     def get_user_approval(self, prompt_text: str, timeout: int = 220) -> str:
-        if not sys.stdin.isatty() or os.environ.get("GITHUB_ACTIONS") == "true":
+        if not sys.stdin.isatty() or os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true" or "GITHUB_RUN_ID" in os.environ:
             logger.info("🤖 Headless environment detected: Auto-approving action.")
             return "PROCEED"
         print(f"\n{prompt_text}")
@@ -325,12 +325,17 @@ class CoreUtilsMixin:
         return response_text
 
     def stream_ollama(self, prompt: str, on_chunk) -> str:
-        if os.environ.get("GITHUB_ACTIONS") == "true":
+        if os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true" or "GITHUB_RUN_ID" in os.environ:
             logger.error(
                 "🚫 SECURITY VIOLATION: Ollama called in Cloud environment. ABORTING."
             )
+            time.sleep(60)
             return "ERROR_CODE_CLOUD_OLLAMA_FORBIDDEN"
-        # -----------------------------
+            
+        if not OLLAMA_AVAILABLE:
+            logger.error("🚫 Ollama is not available.")
+            time.sleep(60)
+            return "ERROR_CODE_OLLAMA_UNAVAILABLE"
 
         response_text = ""
         try:
@@ -348,28 +353,27 @@ class CoreUtilsMixin:
                     response_text += content
         except Exception as e:
             logger.error(f"Ollama Error: {e}")
+            time.sleep(10)
         return response_text
 
     def stream_github_models(
-        self, prompt: str, on_chunk, model_name: str = "Phi-4"
+        self, prompt: str, on_chunk, model_name: str = "Llama-3"
     ) -> str:
-        """Fallback to GitHub Models API using OpenAI-compatible format."""
         token = os.environ.get("GITHUB_TOKEN")
         if not token:
+            logger.error("🚫 GITHUB_TOKEN is missing. Cannot use GitHub Models.")
+            time.sleep(60)
             return "ERROR_CODE_TOKEN_MISSING"
 
-        # GitHub Models inference endpoint
         endpoint = "https://models.inference.ai.azure.com/chat/completions"
 
-        # Standard OpenAI-compatible header
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         }
 
-        # Standard OpenAI-compatible payload (model goes in 'model' key, NOT a custom header)
         actual_model = (
-            "Phi-4" if model_name == "Phi-4" else "Meta-Llama-3.3-70B-Instruct"
+            "Meta-Llama-3.3-70B-Instruct" if model_name == "Llama-3" else "Phi-4"
         )
 
         data = {
@@ -393,7 +397,6 @@ class CoreUtilsMixin:
             )
 
             if response.status_code != 200:
-                # Log the actual error from GitHub
                 error_body = response.text
                 logger.error(
                     f"❌ GitHub Models ({actual_model}) Error {response.status_code}: {error_body}"
@@ -428,12 +431,12 @@ class CoreUtilsMixin:
         prompt: str,
         key: str | None = None,
         context: str = "",
-        gh_model: str = "Phi-4",
+        gh_model: str = "Llama-3",
     ) -> str:
         input_tokens = len(prompt) // 4
         first_chunk_received = [False]
         gen_start_time = time.time()
-        is_cloud = os.environ.get("GITHUB_ACTIONS") == "true"
+        is_cloud = os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true" or "GITHUB_RUN_ID" in os.environ
 
         def spinner():
             spinner_chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
@@ -490,7 +493,7 @@ class CoreUtilsMixin:
 
     def get_valid_llm_response(self, prompt: str, validator, context: str = "") -> str:
         attempts = 0
-        is_cloud = os.environ.get("GITHUB_ACTIONS") == "true"
+        is_cloud = os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true" or "GITHUB_RUN_ID" in os.environ
 
         while True:
             key = None
@@ -498,7 +501,6 @@ class CoreUtilsMixin:
             available_keys = [k for k, cd in self.key_cooldowns.items() if now > cd]
             response_text = None
 
-            # --- STEP 1: ENGINE SELECTION & EXECUTION ---
             if available_keys:
                 key = available_keys[attempts % len(available_keys)]
                 logger.info(
@@ -509,10 +511,10 @@ class CoreUtilsMixin:
                 )
             elif is_cloud:
                 logger.warning(
-                    "⏳ Gemini limited. Pivoting to GitHub Models (Phi-4)..."
+                    "⏳ Gemini limited. Pivoting to GitHub Models (Llama-3)..."
                 )
                 response_text = self._stream_single_llm(
-                    prompt, key=None, context=context, gh_model="Phi-4"
+                    prompt, key=None, context=context, gh_model="Llama-3"
                 )
             else:
                 logger.info("🏠 Using Local Ollama Engine...")
@@ -520,37 +522,28 @@ class CoreUtilsMixin:
                     prompt, key=None, context=context
                 )
 
-            # --- STEP 2: POST-EXECUTION SAFETY & RELAY LOGIC ---
-
             if not response_text or response_text.startswith("ERROR_CODE_"):
-                # A. Handle Gemini Rate Limit (429)
                 if "429" in response_text and key:
                     self.key_cooldowns[key] = time.time() + 1200
                     logger.warning(f"⚠️ Key {key[-4:]} rate-limited. Rotating...")
 
-                # B. The Cascade Pivot (Executed if Gemini failed OR if it was Phi-4 that failed)
                 if is_cloud:
-                    # If Gemini failed (or Phi-4 failed in the previous loop iteration if we came from the outer 'continue')
-                    # We need to know if we just tried Gemini or are already on the cloud fallback.
-                    if key:  # This means Gemini just failed. Try Phi-4.
+                    if key:
                         logger.warning(
-                            "☁️ Gemini failed/limited. Pivoting to GitHub Models (Phi-4)..."
-                        )
-                        response_text = self._stream_single_llm(
-                            prompt, key=None, context=context, gh_model="Phi-4"
-                        )
-
-                    # If Phi-4 also failed (or we already pivoted to Llama-3 last time)
-                    if not response_text or response_text.startswith("ERROR_CODE_"):
-                        # This logic branch handles the Llama-3 attempt now.
-                        logger.warning(
-                            "☁️ Phi-4 failed. Pivoting to GitHub Models (Llama-3)..."
+                            "☁️ Gemini failed/limited. Pivoting to GitHub Models (Llama-3)..."
                         )
                         response_text = self._stream_single_llm(
                             prompt, key=None, context=context, gh_model="Llama-3"
                         )
 
-                    # C. MANDATORY SLEEP (If ALL cloud engines fail)
+                    if not response_text or response_text.startswith("ERROR_CODE_"):
+                        logger.warning(
+                            "☁️ Llama-3 failed. Pivoting to GitHub Models (Phi-4)..."
+                        )
+                        response_text = self._stream_single_llm(
+                            prompt, key=None, context=context, gh_model="Phi-4"
+                        )
+
                     if not response_text or response_text.startswith("ERROR_CODE_"):
                         wait = 60
                         logger.warning(
@@ -558,9 +551,8 @@ class CoreUtilsMixin:
                         )
                         time.sleep(wait)
                         attempts += 1
-                        continue  # Loop back to try Gemini keys again after the nap
+                        continue
 
-            # D. Generic Error Handling (For local Ollama or other initial failures)
             if not response_text or response_text.startswith("ERROR_CODE_"):
                 wait = 10 if not is_cloud else 5
                 logger.warning(f"⚠️ Generic LLM error. Backing off {wait}s...")
@@ -568,7 +560,6 @@ class CoreUtilsMixin:
                 attempts += 1
                 continue
 
-            # --- STEP 4: VALIDATION GATE ---
             if validator(response_text):
                 if is_cloud:
                     time.sleep(5)
@@ -822,7 +813,6 @@ class CoreUtilsMixin:
                     with open(target, "r", encoding="utf-8", errors="ignore") as f:
                         content = f.read()
                         if target.endswith(".py"):
-                            # Resilient check for both quote styles
                             if (
                                 'if __name__ == "__main__":' in content
                                 or "if __name__ == '__main__':" in content
@@ -851,7 +841,6 @@ class CoreUtilsMixin:
                             file_path, "r", encoding="utf-8", errors="ignore"
                         ) as f_obj:
                             content = f_obj.read()
-                            # Resilient check for both quote styles in fallback scan
                             if (
                                 'if __name__ == "__main__":' in content
                                 or "if __name__ == '__main__':" in content
