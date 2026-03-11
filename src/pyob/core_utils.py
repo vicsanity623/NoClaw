@@ -471,40 +471,51 @@ class CoreUtilsMixin:
     def get_valid_llm_response(self, prompt: str, validator, context: str = "") -> str:
         attempts = 0
         is_cloud = os.environ.get("GITHUB_ACTIONS") == "true"
-        
+
         while True:
             response_text = None
             key = None
-            
+
             # --- PHASE 1: ATTEMPT GEMINI KEYS ---
-            available_keys = [k for k, cd in self.key_cooldowns.items() if time.time() > cd]
+            available_keys = [
+                k for k, cd in self.key_cooldowns.items() if time.time() > cd
+            ]
             if available_keys:
                 key = available_keys[attempts % len(available_keys)]
-                logger.info(f"Attempting Gemini Key {attempts % len(available_keys) + 1}/{len(available_keys)}")
-                response_text = self._stream_single_llm(prompt, key=key, context=context)
-            
+                logger.info(
+                    f"Attempting Gemini Key {attempts % len(available_keys) + 1}/{len(available_keys)}"
+                )
+                response_text = self._stream_single_llm(
+                    prompt, key=key, context=context
+                )
+
             # --- PHASE 2: PIVOT TO GITHUB MODELS (If Gemini fails or limited) ---
             # We pivot if Gemini wasn't attempted, or if it returned an error
             if not response_text or response_text.startswith("ERROR_CODE_"):
-                
                 # Try Phi-4 first
                 logger.warning("☁️ Pivoting to GitHub Models (Phi-4)...")
-                response_text = self._stream_single_llm(prompt, key=None, context=context, gh_model="Phi-4")
-                
+                response_text = self._stream_single_llm(
+                    prompt, key=None, context=context, gh_model="Phi-4"
+                )
+
                 # If Phi-4 fails, try Llama-3
                 if not response_text or response_text.startswith("ERROR_CODE_"):
-                    logger.warning("☁️ Phi-4 failed. Pivoting to GitHub Models (Llama-3)...")
-                    response_text = self._stream_single_llm(prompt, key=None, context=context, gh_model="Llama-3")
+                    logger.warning(
+                        "☁️ Phi-4 failed. Pivoting to GitHub Models (Llama-3)..."
+                    )
+                    response_text = self._stream_single_llm(
+                        prompt, key=None, context=context, gh_model="Llama-3"
+                    )
 
             # --- PHASE 3: FINAL EVALUATION & SLEEP ---
-            
+
             # If after all relays, we still have an error, THEN we sleep
             if not response_text or response_text.startswith("ERROR_CODE_"):
                 # Handle 429 specifically
                 if "429" in response_text and key:
                     self.key_cooldowns[key] = time.time() + 1200
-                
-                wait = 60 # Mandatory bucket refill
+
+                wait = 60  # Mandatory bucket refill
                 logger.warning(f"⚠️ All relay engines exhausted. Sleeping {wait}s...")
                 time.sleep(wait)
                 attempts += 1
@@ -517,10 +528,15 @@ class CoreUtilsMixin:
                 return response_text
             else:
                 # Cleanup hallucinated conversational filler
-                clean_text = re.sub(r"^(Here is the code:)|(I suggest:)|(```)", "", response_text, flags=re.IGNORECASE)
+                clean_text = re.sub(
+                    r"^(Here is the code:)|(I suggest:)|(```)",
+                    "",
+                    response_text,
+                    flags=re.IGNORECASE,
+                )
                 if validator(clean_text):
                     return clean_text
-                
+
                 logger.warning("⚠️ Response invalid. Backing off 15s...")
                 time.sleep(15)
                 attempts += 1
