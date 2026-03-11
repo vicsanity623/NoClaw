@@ -410,7 +410,7 @@ class CoreUtilsMixin:
         first_chunk_received = [False]
         gen_start_time = time.time()
         is_cloud = os.environ.get("GITHUB_ACTIONS") == "true"
-        
+
         def spinner():
             spinner_chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
             i = 0
@@ -460,16 +460,18 @@ class CoreUtilsMixin:
         # If response is empty, return a clear error code for the loop to handle
         if not response_text:
             return "ERROR_CODE_EMPTY"
-            
+
         final_time = time.time() - gen_start_time
         if response_text and not response_text.startswith("ERROR_CODE_"):
-            print(f"\n\n[✅ Generation Complete: ~{len(response_text) // 4} tokens in {final_time:.1f}s]")
+            print(
+                f"\n\n[✅ Generation Complete: ~{len(response_text) // 4} tokens in {final_time:.1f}s]"
+            )
         return response_text
 
     def get_valid_llm_response(self, prompt: str, validator, context: str = "") -> str:
         attempts = 0
         is_cloud = os.environ.get("GITHUB_ACTIONS") == "true"
-        
+
         while True:
             key = None
             now = time.time()
@@ -478,27 +480,37 @@ class CoreUtilsMixin:
             # 1. Selection
             if available_keys:
                 key = available_keys[attempts % len(available_keys)]
-                logger.info(f"Attempting Gemini Key {attempts % len(available_keys) + 1}/{len(available_keys)}")
-            
+                logger.info(
+                    f"Attempting Gemini Key {attempts % len(available_keys) + 1}/{len(available_keys)}"
+                )
+
             # 2. Execution (We perform the call ONCE per loop)
-            # We determine the mode and key here. 
+            # We determine the mode and key here.
             if key:
-                response_text = self._stream_single_llm(prompt, key=key, context=context)
+                response_text = self._stream_single_llm(
+                    prompt, key=key, context=context
+                )
             elif is_cloud:
                 # GitHub Models logic
                 gh_model = "Llama-3" if attempts > 0 else "Phi-4"
                 logger.warning(f"☁️ Pivoting to GitHub Models ({gh_model})...")
-                response_text = self._stream_single_llm(prompt, key=None, context=context, gh_model=gh_model)
+                response_text = self._stream_single_llm(
+                    prompt, key=None, context=context, gh_model=gh_model
+                )
             else:
                 logger.info("🏠 Using Local Ollama Engine...")
-                response_text = self._stream_single_llm(prompt, key=None, context=context)
+                response_text = self._stream_single_llm(
+                    prompt, key=None, context=context
+                )
 
             # 3. Handle Cloud Failure & Sleep (The "Machine Gun" stopper)
-            if is_cloud and (not response_text or response_text.startswith("ERROR_CODE_")):
+            if is_cloud and (
+                not response_text or response_text.startswith("ERROR_CODE_")
+            ):
                 if "429" in response_text and key:
                     self.key_cooldowns[key] = time.time() + 1200
                     logger.warning(f"⚠️ Key {key[-4:]} rate-limited.")
-                
+
                 # Mandatory 60s bucket refill nap if cloud engines fail
                 logger.warning("⚠️ All Cloud Engines failed/limited. Nap 60s...")
                 for i in range(60, 0, -10):
@@ -522,10 +534,15 @@ class CoreUtilsMixin:
                     time.sleep(5)
                 return response_text
             else:
-                clean_text = re.sub(r"^(Here is the code:)|(I suggest:)|(```)", "", response_text, flags=re.IGNORECASE)
+                clean_text = re.sub(
+                    r"^(Here is the code:)|(I suggest:)|(```)",
+                    "",
+                    response_text,
+                    flags=re.IGNORECASE,
+                )
                 if validator(clean_text):
                     return clean_text
-                
+
                 wait = 20 if is_cloud else 5
                 logger.warning(f"⚠️ Invalid format. Backing off {wait}s...")
                 time.sleep(wait)
