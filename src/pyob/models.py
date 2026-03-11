@@ -1,4 +1,3 @@
-# models.py
 import json
 import logging
 import os
@@ -7,21 +6,17 @@ import shutil
 import sys
 import threading
 import time
+from typing import Callable, Optional
 
 import requests
 
 logger = logging.getLogger("PyOuroBoros")
 
 try:
-    if (
-        os.environ.get("GITHUB_ACTIONS") == "true"
-        or os.environ.get("CI") == "true"
-        or "GITHUB_RUN_ID" in os.environ
-    ):
+    if os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true" or "GITHUB_RUN_ID" in os.environ:
         OLLAMA_AVAILABLE = False
     else:
         import ollama
-
         OLLAMA_AVAILABLE = True
 except ImportError:
     OLLAMA_AVAILABLE = False
@@ -30,14 +25,16 @@ GEMINI_MODEL = os.environ.get("PYOB_GEMINI_MODEL", "gemini-2.5-flash")
 LOCAL_MODEL = os.environ.get("PYOB_LOCAL_MODEL", "qwen3-coder:30b")
 
 
-def stream_gemini(prompt: str, api_key: str, on_chunk) -> str:
+def stream_gemini(prompt: str, api_key: str, on_chunk: Callable[[], None]) -> str:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:streamGenerateContent?alt=sse&key={api_key}"
     headers = {"Content-Type": "application/json"}
     data = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": 0.1},
     }
-    response = requests.post(url, headers=headers, json=data, stream=True, timeout=120)
+    response = requests.post(
+        url, headers=headers, json=data, stream=True, timeout=120
+    )
     if response.status_code != 200:
         return f"ERROR_CODE_{response.status_code}: {response.text}"
     response_text = ""
@@ -54,12 +51,8 @@ def stream_gemini(prompt: str, api_key: str, on_chunk) -> str:
     return response_text
 
 
-def stream_ollama(prompt: str, on_chunk) -> str:
-    if (
-        os.environ.get("GITHUB_ACTIONS") == "true"
-        or os.environ.get("CI") == "true"
-        or "GITHUB_RUN_ID" in os.environ
-    ):
+def stream_ollama(prompt: str, on_chunk: Callable[[], None]) -> str:
+    if os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true" or "GITHUB_RUN_ID" in os.environ:
         logger.error(
             "🚫 SECURITY VIOLATION: Ollama called in Cloud environment. ABORTING."
         )
@@ -91,7 +84,9 @@ def stream_ollama(prompt: str, on_chunk) -> str:
     return response_text
 
 
-def stream_github_models(prompt: str, on_chunk, model_name: str = "Llama-3") -> str:
+def stream_github_models(
+    prompt: str, on_chunk: Callable[[], None], model_name: str = "Llama-3"
+) -> str:
     token = os.environ.get("GITHUB_TOKEN")
     if not token:
         logger.error("🚫 GITHUB_TOKEN is missing. Cannot use GitHub Models.")
@@ -105,7 +100,9 @@ def stream_github_models(prompt: str, on_chunk, model_name: str = "Llama-3") -> 
         "Content-Type": "application/json",
     }
 
-    actual_model = "Meta-Llama-3.3-70B-Instruct" if model_name == "Llama-3" else "Phi-4"
+    actual_model = (
+        "Meta-Llama-3.3-70B-Instruct" if model_name == "Llama-3" else "Phi-4"
+    )
 
     data = {
         "model": actual_model,
@@ -143,7 +140,9 @@ def stream_github_models(prompt: str, on_chunk, model_name: str = "Llama-3") -> 
             try:
                 chunk = json.loads(line_str)
                 content = (
-                    chunk.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                    chunk.get("choices", [{}])[0]
+                    .get("delta", {})
+                    .get("content", "")
                 )
                 if content:
                     full_text += content
@@ -158,18 +157,14 @@ def stream_github_models(prompt: str, on_chunk, model_name: str = "Llama-3") -> 
 
 def stream_single_llm(
     prompt: str,
-    key: str | None = None,
+    key: Optional[str] = None,
     context: str = "",
     gh_model: str = "Llama-3",
 ) -> str:
     input_tokens = len(prompt) // 4
     first_chunk_received = [False]
     gen_start_time = time.time()
-    is_cloud = (
-        os.environ.get("GITHUB_ACTIONS") == "true"
-        or os.environ.get("CI") == "true"
-        or "GITHUB_RUN_ID" in os.environ
-    )
+    is_cloud = os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true" or "GITHUB_RUN_ID" in os.environ
 
     def spinner():
         spinner_chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
@@ -196,7 +191,9 @@ def stream_single_llm(
             first_chunk_received[0] = True
             sys.stdout.write("\r\033[K")
             sys.stdout.flush()
-            source = f"Gemini ...{key[-4:]}" if key else f"GitHub Models ({gh_model})"
+            source = (
+                f"Gemini ...{key[-4:]}" if key else f"GitHub Models ({gh_model})"
+            )
             if not key and not is_cloud:
                 source = "Local Ollama"
             print(f"🤖 AI Output ({source}): ", end="", flush=True)
@@ -206,7 +203,9 @@ def stream_single_llm(
         if key is not None:
             response_text = stream_gemini(prompt, key, on_chunk)
         elif is_cloud:
-            response_text = stream_github_models(prompt, on_chunk, model_name=gh_model)
+            response_text = stream_github_models(
+                prompt, on_chunk, model_name=gh_model
+            )
         else:
             response_text = stream_ollama(prompt, on_chunk)
     except Exception as e:
@@ -221,15 +220,9 @@ def stream_single_llm(
     return response_text
 
 
-def get_valid_llm_response_engine(
-    prompt: str, validator, key_cooldowns: dict[str, float], context: str = ""
-) -> str:
+def get_valid_llm_response_engine(prompt: str, validator: Callable[[str], bool], key_cooldowns: dict[str, float], context: str = "") -> str:
     attempts = 0
-    is_cloud = (
-        os.environ.get("GITHUB_ACTIONS") == "true"
-        or os.environ.get("CI") == "true"
-        or "GITHUB_RUN_ID" in os.environ
-    )
+    is_cloud = os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true" or "GITHUB_RUN_ID" in os.environ
 
     while True:
         key = None
@@ -242,15 +235,21 @@ def get_valid_llm_response_engine(
             logger.info(
                 f"Attempting Gemini Key {attempts % len(available_keys) + 1}/{len(available_keys)}"
             )
-            response_text = stream_single_llm(prompt, key=key, context=context)
+            response_text = stream_single_llm(
+                prompt, key=key, context=context
+            )
         elif is_cloud:
-            logger.warning("⏳ Gemini limited. Pivoting to GitHub Models (Llama-3)...")
+            logger.warning(
+                "⏳ Gemini limited. Pivoting to GitHub Models (Llama-3)..."
+            )
             response_text = stream_single_llm(
                 prompt, key=None, context=context, gh_model="Llama-3"
             )
         else:
             logger.info("🏠 Using Local Ollama Engine...")
-            response_text = stream_single_llm(prompt, key=None, context=context)
+            response_text = stream_single_llm(
+                prompt, key=None, context=context
+            )
 
         if not response_text or response_text.startswith("ERROR_CODE_"):
             if "429" in response_text and key:
