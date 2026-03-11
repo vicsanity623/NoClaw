@@ -9,6 +9,7 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.parse
 from http.server import HTTPServer
 from pathlib import Path
 from typing import Optional
@@ -68,10 +69,123 @@ class EntranceController:
     def start_dashboard(self):
         # 1. Save to the internal .pyob folder
         obs_path = os.path.join(self.pyob_dir, "observer.html")
+
+        # Dynamically modify OBSERVER_HTML string to inject manual target UI and logic
+        modified_html_content = OBSERVER_HTML
+
+        # Insert HTML block for manual target selection
+        html_to_insert = """
+        <!-- NEW INTERACTIVE FEATURE START -->
+        <div class="control-section" style="background-color: #333333; padding: 15px; border-radius: 6px; margin-top: 20px;">
+            <h3>Manual Target Selection</h3>
+            <form id="set-target-form" action="/set_target" method="POST">
+                <input type="text" id="target-file-path" name="file_path" placeholder="e.g., src/my_module/my_file.py" style="width: 70%; padding: 8px; margin-right: 10px; border: 1px solid #555; background-color: #1c1c1c; color: #d4d4d4; border-radius: 4px;">
+                <button type="submit" style="padding: 8px 15px; background-color: #6a9955; color: white; border: none; border-radius: 4px; cursor: pointer;">Set Next Target</button>
+            </form>
+            <p id="target-message" style="margin-top: 10px; color: #dcdcaa;"></p>
+        </div>
+        <!-- NEW INTERACTIVE FEATURE END -->
+"""
+        # Assuming OBSERVER_HTML has a structure like: ... </div>\n\n        <h2>Live Log</h2>
+        # This is a fragile string replacement based on the proposal's description.
+        insertion_marker_html = "        </div>\n\n        <h2>Live Log</h2>"
+        if insertion_marker_html in modified_html_content:
+            modified_html_content = modified_html_content.replace(
+                insertion_marker_html, html_to_insert + "\n" + insertion_marker_html
+            )
+        else:
+            logger.warning(
+                "HTML insertion marker not found in OBSERVER_HTML. Manual target UI may not be visible."
+            )
+
+        # Insert JavaScript for manual target form submission handling
+        js_to_insert = """
+        // Handle manual target form submission
+        document.getElementById('set-target-form').addEventListener('submit', function(event) {
+            event.preventDefault(); // Prevent default form submission
+
+            const filePathInput = document.getElementById('target-file-path');
+            const filePath = filePathInput.value;
+            const targetMessage = document.getElementById('target-message');
+
+            if (!filePath) {
+                targetMessage.textContent = 'Please enter a file path.';
+                targetMessage.style.color = 'red';
+                return;
+            }
+
+            fetch('/set_target', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `file_path=${encodeURIComponent(filePath)}`
+            })
+            .then(response => {
+                const isOk = response.ok; // Capture response.ok status
+                return response.json().then(data => ({ data, isOk })); // Pass data and status
+            })
+            .then(({ data, isOk }) => { // Destructure to get both
+                targetMessage.textContent = data.message;
+                // Check response.ok from the original fetch response, not data
+                targetMessage.style.color = isOk ? '#6a9955' : 'red';
+                if (isOk) {
+                    filePathInput.value = ''; // Clear input on success
+                }
+            })
+            .catch(error => {
+                console.error('Error setting manual target:', error);
+                targetMessage.textContent = 'An error occurred while setting target.';
+                targetMessage.style.color = 'red';
+            });
+        });
+"""
+        # Assuming OBSERVER_HTML has a script tag ending with '    </script>'
+        insertion_marker_js = "    </script>"
+        if insertion_marker_js in modified_html_content:
+            modified_html_content = modified_html_content.replace(
+                insertion_marker_js, js_to_insert + "\n" + insertion_marker_js
+            )
+        else:
+            logger.warning(
+                "JavaScript insertion marker not found in OBSERVER_HTML. Manual target logic may not be functional."
+            )
+
         with open(obs_path, "w", encoding="utf-8") as f:
-            f.write(OBSERVER_HTML)
+            f.write(modified_html_content)
 
         # 2. Initialize and Start the Live Server
+
+        # Dynamically add do_POST method for manual target handling
+        def _dynamic_do_POST_method(handler_instance):
+            if handler_instance.path == "/set_target":
+                content_length = int(handler_instance.headers["Content-Length"])
+                post_data = handler_instance.rfile.read(content_length).decode("utf-8")
+                parsed_data = urllib.parse.parse_qs(post_data)
+                file_path = parsed_data.get("file_path", [""])[0]
+
+                if file_path and handler_instance.controller:
+                    handler_instance.controller.set_manual_target_file(file_path)
+                    message = f"Manual target set to: {file_path}"
+                    status_code = 200
+                else:
+                    message = (
+                        "Error: No file path provided or controller not available."
+                    )
+                    status_code = 400
+
+                handler_instance.send_response(status_code)
+                handler_instance.send_header("Content-type", "application/json")
+                handler_instance.end_headers()
+                handler_instance.wfile.write(
+                    json.dumps({"message": message}).encode("utf-8")
+                )
+            else:
+                handler_instance.send_error(404)
+
+        # Assign the function as a method to the imported class
+        ObserverHandler.do_POST = _dynamic_do_POST_method
+
         ObserverHandler.controller = self
 
         def run_server():
