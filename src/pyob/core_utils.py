@@ -16,10 +16,15 @@ import tty
 import requests
 
 try:
-    if os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true" or "GITHUB_RUN_ID" in os.environ:
+    if (
+        os.environ.get("GITHUB_ACTIONS") == "true"
+        or os.environ.get("CI") == "true"
+        or "GITHUB_RUN_ID" in os.environ
+    ):
         OLLAMA_AVAILABLE = False
     else:
         import ollama
+
         OLLAMA_AVAILABLE = True
 except ImportError:
     OLLAMA_AVAILABLE = False
@@ -148,7 +153,12 @@ class CoreUtilsMixin:
     key_cooldowns: dict[str, float]
 
     def get_user_approval(self, prompt_text: str, timeout: int = 220) -> str:
-        if not sys.stdin.isatty() or os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true" or "GITHUB_RUN_ID" in os.environ:
+        if (
+            not sys.stdin.isatty()
+            or os.environ.get("GITHUB_ACTIONS") == "true"
+            or os.environ.get("CI") == "true"
+            or "GITHUB_RUN_ID" in os.environ
+        ):
             logger.info("🤖 Headless environment detected: Auto-approving action.")
             return "PROCEED"
         print(f"\n{prompt_text}")
@@ -325,13 +335,17 @@ class CoreUtilsMixin:
         return response_text
 
     def stream_ollama(self, prompt: str, on_chunk) -> str:
-        if os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true" or "GITHUB_RUN_ID" in os.environ:
+        if (
+            os.environ.get("GITHUB_ACTIONS") == "true"
+            or os.environ.get("CI") == "true"
+            or "GITHUB_RUN_ID" in os.environ
+        ):
             logger.error(
                 "🚫 SECURITY VIOLATION: Ollama called in Cloud environment. ABORTING."
             )
             time.sleep(60)
             return "ERROR_CODE_CLOUD_OLLAMA_FORBIDDEN"
-            
+
         if not OLLAMA_AVAILABLE:
             logger.error("🚫 Ollama is not available.")
             time.sleep(60)
@@ -436,7 +450,11 @@ class CoreUtilsMixin:
         input_tokens = len(prompt) // 4
         first_chunk_received = [False]
         gen_start_time = time.time()
-        is_cloud = os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true" or "GITHUB_RUN_ID" in os.environ
+        is_cloud = (
+            os.environ.get("GITHUB_ACTIONS") == "true"
+            or os.environ.get("CI") == "true"
+            or "GITHUB_RUN_ID" in os.environ
+        )
 
         def spinner():
             spinner_chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
@@ -493,7 +511,11 @@ class CoreUtilsMixin:
 
     def get_valid_llm_response(self, prompt: str, validator, context: str = "") -> str:
         attempts = 0
-        is_cloud = os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true" or "GITHUB_RUN_ID" in os.environ
+        is_cloud = (
+            os.environ.get("GITHUB_ACTIONS") == "true"
+            or os.environ.get("CI") == "true"
+            or "GITHUB_RUN_ID" in os.environ
+        )
 
         while True:
             key = None
