@@ -34,7 +34,7 @@ class PromptsAndMemoryMixin:
         # Use a consistent path resolution
         data_dir = os.path.join(self.target_dir, ".pyob")
         filepath = os.path.join(data_dir, filename)
-        
+
         try:
             with open(filepath, "r", encoding="utf-8") as f:
                 template = f.read()
