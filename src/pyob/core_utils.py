@@ -363,7 +363,10 @@ class CoreUtilsMixin:
         )
 
         data = {
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": [
+                {"role": "system", "content": "You are a code generation engine. Output ONLY raw code, no conversational filler, no markdown introductions."},
+                {"role": "user", "content": prompt}
+            ],
             "model": actual_model,
             "stream": True,
             "temperature": 0.1,
