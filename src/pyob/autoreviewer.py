@@ -249,8 +249,8 @@ class AutoReviewer(
 
             if response_text.startswith("ERROR_CODE_429"):
                 if key:
-                    logger.warning("⚠️ Key hit a 429 rate limit. Timeout 20m.")
-                    self.key_cooldowns[key] = time.time() + 1200
+                    logger.warning("⚠️ Key hit a 429 rate limit. Timeout 2m.")
+                    self.key_cooldowns[key] = time.time() + 120
                 time.sleep(60)
                 attempts += 1
                 continue
