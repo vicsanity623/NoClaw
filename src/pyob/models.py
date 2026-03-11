@@ -287,7 +287,7 @@ def get_valid_llm_response_engine(
 
         if not response_text or response_text.startswith("ERROR_CODE_"):
             if key and response_text and "429" in response_text:
-                key_cooldowns[key] = time.time() + 1200
+                key_cooldowns[key] = time.time() + 60
                 logger.warning(f"⚠️ Key {key[-4:]} rate-limited. Rotating...")
                 if is_cloud:
                     logger.warning(
