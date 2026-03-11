@@ -438,61 +438,45 @@ class EntranceController:
         rel_entry_file = os.path.relpath(entry_file, self.target_dir)
 
         for attempt in range(3):
-            logger.info(
-                f"🚀 Launching `{rel_entry_file}` for test... (Attempt {attempt + 1}/3)"
-            )
+            logger.info(f"🚀 Launching `{rel_entry_file}` for test... (Attempt {attempt + 1}/3)")
 
             cmd: list[str] = []
+            is_html = entry_file.endswith((".html", ".htm"))
+            is_js = entry_file.endswith((".js", "package.json"))
+            is_py = entry_file.endswith(".py")
 
-            if entry_file.endswith(".py"):
-                venv_python = os.path.join(
-                    self.target_dir, "build_env", "bin", "python3"
-                )
-                if not os.path.exists(venv_python):
-                    venv_python = os.path.join(
-                        self.target_dir, "venv", "bin", "python3"
-                    )
-
-                if os.path.exists(venv_python):
-                    python_cmd = venv_python
-                else:
-                    # Use the current Python executable (interpreter or frozen app)
-                    # This ensures consistency whether PyOB is run as a script or a frozen app.
-                    python_cmd = sys.executable
-
+            if is_py:
+                # Python execution logic
+                venv_python = os.path.join(self.target_dir, "build_env", "bin", "python3")
+                python_cmd = venv_python if os.path.exists(venv_python) else sys.executable
                 cmd = [python_cmd, entry_file]
                 if os.path.basename(entry_file) == "entrance.py":
                     cmd.append("--no-dashboard")
 
-            elif entry_file.endswith("package.json"):
-                npm_bin = shutil.which("npm") or "npm"
-                cmd = [npm_bin, "start"]
+            elif is_js:
+                cmd = ["npm", "start"] if entry_file.endswith("package.json") else ["node", entry_file]
 
-            elif entry_file.endswith(".js"):
-                node_bin = shutil.which("node") or "node"
-                cmd = [node_bin, entry_file]
-
-            elif entry_file.endswith(".html") or entry_file.endswith(".htm"):
-                if sys.platform == "darwin":
-                    cmd = ["open", entry_file]
-                elif sys.platform == "win32":
-                    cmd = ["start", entry_file]
-                else:
-                    cmd = ["xdg-open", entry_file]
+            elif is_html:
+                # IMPORTANT: For HTML, we do NOT run Python. 
+                # We perform a simple existence check or skip if in Cloud.
+                if os.environ.get("GITHUB_ACTIONS") == "true":
+                    logger.info("📄 HTML detected in Cloud. Skipping browser launch.")
+                    return True
+                cmd = ["open", entry_file] if sys.platform == "darwin" else ["start", entry_file]
 
             if not cmd:
-                logger.warning(
-                    f"Could not determine launch command for {rel_entry_file}"
-                )
+                logger.warning(f"Could not determine launch command for {rel_entry_file}")
                 return True
 
+            # EXECUTION
             start_time = time.time()
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                cwd=self.target_dir,
+            try:
+                # If HTML/JS or not Python, we don't 'execute' like a script in CI
+                if is_html and os.environ.get("GITHUB_ACTIONS") == "true":
+                    return True
+
+                process = subprocess.Popen(
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=self.target_dir
                 shell=(
                     True
                     if (
