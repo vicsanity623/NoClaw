@@ -491,52 +491,71 @@ class CoreUtilsMixin:
     def get_valid_llm_response(self, prompt: str, validator, context: str = "") -> str:
         attempts = 0
         is_cloud = os.environ.get("GITHUB_ACTIONS") == "true"
-        
+
         while True:
             key = None
             now = time.time()
             available_keys = [k for k, cd in self.key_cooldowns.items() if now > cd]
             response_text = None
-            
+
             # --- STEP 1: ENGINE SELECTION & EXECUTION ---
             if available_keys:
                 key = available_keys[attempts % len(available_keys)]
-                logger.info(f"Attempting Gemini Key {attempts % len(available_keys) + 1}/{len(available_keys)}")
-                response_text = self._stream_single_llm(prompt, key=key, context=context)
+                logger.info(
+                    f"Attempting Gemini Key {attempts % len(available_keys) + 1}/{len(available_keys)}"
+                )
+                response_text = self._stream_single_llm(
+                    prompt, key=key, context=context
+                )
             elif is_cloud:
-                logger.warning("⏳ Gemini limited. Pivoting to GitHub Models (Phi-4)...")
-                response_text = self._stream_single_llm(prompt, key=None, context=context, gh_model="Phi-4")
+                logger.warning(
+                    "⏳ Gemini limited. Pivoting to GitHub Models (Phi-4)..."
+                )
+                response_text = self._stream_single_llm(
+                    prompt, key=None, context=context, gh_model="Phi-4"
+                )
             else:
                 logger.info("🏠 Using Local Ollama Engine...")
-                response_text = self._stream_single_llm(prompt, key=None, context=context)
+                response_text = self._stream_single_llm(
+                    prompt, key=None, context=context
+                )
 
             # --- STEP 2: POST-EXECUTION SAFETY & RELAY LOGIC ---
-            
+
             if not response_text or response_text.startswith("ERROR_CODE_"):
-                
                 # A. Handle Gemini Rate Limit (429)
                 if "429" in response_text and key:
                     self.key_cooldowns[key] = time.time() + 1200
                     logger.warning(f"⚠️ Key {key[-4:]} rate-limited. Rotating...")
-                
+
                 # B. The Cascade Pivot (Executed if Gemini failed OR if it was Phi-4 that failed)
                 if is_cloud:
                     # If Gemini failed (or Phi-4 failed in the previous loop iteration if we came from the outer 'continue')
                     # We need to know if we just tried Gemini or are already on the cloud fallback.
-                    if key: # This means Gemini just failed. Try Phi-4.
-                        logger.warning("☁️ Gemini failed/limited. Pivoting to GitHub Models (Phi-4)...")
-                        response_text = self._stream_single_llm(prompt, key=None, context=context, gh_model="Phi-4")
-                    
+                    if key:  # This means Gemini just failed. Try Phi-4.
+                        logger.warning(
+                            "☁️ Gemini failed/limited. Pivoting to GitHub Models (Phi-4)..."
+                        )
+                        response_text = self._stream_single_llm(
+                            prompt, key=None, context=context, gh_model="Phi-4"
+                        )
+
                     # If Phi-4 also failed (or we already pivoted to Llama-3 last time)
                     if not response_text or response_text.startswith("ERROR_CODE_"):
                         # This logic branch handles the Llama-3 attempt now.
-                        logger.warning("☁️ Phi-4 failed. Pivoting to GitHub Models (Llama-3)...")
-                        response_text = self._stream_single_llm(prompt, key=None, context=context, gh_model="Llama-3")
-                    
+                        logger.warning(
+                            "☁️ Phi-4 failed. Pivoting to GitHub Models (Llama-3)..."
+                        )
+                        response_text = self._stream_single_llm(
+                            prompt, key=None, context=context, gh_model="Llama-3"
+                        )
+
                     # C. MANDATORY SLEEP (If ALL cloud engines fail)
                     if not response_text or response_text.startswith("ERROR_CODE_"):
                         wait = 60
-                        logger.warning(f"⚠️ All Cloud Engines failed. Sleeping {wait}s for refill...")
+                        logger.warning(
+                            f"⚠️ All Cloud Engines failed. Sleeping {wait}s for refill..."
+                        )
                         time.sleep(wait)
                         attempts += 1
                         continue  # Loop back to try Gemini keys again after the nap
@@ -555,10 +574,15 @@ class CoreUtilsMixin:
                     time.sleep(5)
                 return response_text
             else:
-                clean_text = re.sub(r"^(Here is the code:)|(I suggest:)|(```)", "", response_text, flags=re.IGNORECASE)
+                clean_text = re.sub(
+                    r"^(Here is the code:)|(I suggest:)|(```)",
+                    "",
+                    response_text,
+                    flags=re.IGNORECASE,
+                )
                 if validator(clean_text):
                     return clean_text
-                
+
                 wait = 15 if is_cloud else 5
                 logger.warning(f"⚠️ Response invalid. Backing off {wait}s...")
                 time.sleep(wait)
