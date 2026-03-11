@@ -36,27 +36,22 @@ jobs:
       - name: Run PyOB Service
         env:
           PYOB_GEMINI_KEYS: ${{ secrets.PYOB_GEMINI_KEYS }}
-          GITHUB_TOKEN: ${{ secrets.BOT_GITHUB_TOKEN }}
+          # The GitHub CLI will automatically use this if it's named GH_TOKEN
           GH_TOKEN: ${{ secrets.BOT_GITHUB_TOKEN }}
         run: |
           git config --global user.email "pyob-bot@users.noreply.github.com"
           git config --global user.name "pyob-bot"
-          
-          # Force the CLI to authenticate using the token
-          echo "${{ secrets.BOT_GITHUB_TOKEN }}" | gh auth login --with-token
 
-          # 1. Start the SSH Tunnel (Fixed redirection)
+          # 1. Start the SSH Tunnel
           ssh -o StrictHostKeyChecking=no -R 80:localhost:5000 a.pinggy.io "printf 'keepalive'" > tunnel.log 2>&1 &
-          
-          # 2. Give it a moment and then FORCE print the log to see the link
           sleep 10
+          
+          # 2. Launch the bot
+          pyob . --iterations 2
           echo "=================================================="
           echo "🚀 LIVE HUD TUNNEL (CURRENT RUN):"
           cat tunnel.log | grep -o 'https://[^ ]*\.pinggy.link' || echo "Link generating... check again in 30s"
           echo "=================================================="
-
-          # 3. Launch the bot
-          pyob . --iterations 2
 
       - name: Deploy Permanent HUD to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
