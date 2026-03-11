@@ -264,6 +264,19 @@ class EntranceController:
             logger.info("Iteration complete. Waiting for system cooldown...")
             time.sleep(120)
 
+    def _extract_path_from_llm_response(self, text: str) -> str:
+        """Extracts a clean relative file path from a potentially conversational LLM response."""
+        cleaned_text = text.strip().replace("`", "").replace('"', "").replace("*", "")
+        if " " in cleaned_text:
+            parts = cleaned_text.split()
+            for part in parts:
+                # Heuristic: check for directory separators or common file extensions
+                if "/" in part or part.endswith((".py", ".js", ".ts", ".html", ".css")):
+                    return part
+            # Fallback to the first word if no specific path-like part is found
+            return parts[0]
+        return cleaned_text
+
     def _run_git_command(self, cmd: list[str]) -> bool:
         """Helper to run git commands safely."""
         try:
@@ -593,29 +606,16 @@ src/pyob/core_utils.py
 
         def val(text: str) -> bool:
             """Smarter validation that extracts a path from conversational AI."""
-            p = text.strip().replace("`", "").replace('"', "").replace("*", "")
-
-            if " " in p:
-                parts = p.split()
-                for part in parts:
-                    if "/" in part or part.endswith(".py") or part.endswith(".js"):
-                        p = part
-                        break
-
-            exists = os.path.exists(os.path.join(self.target_dir, p))
-            not_duplicate = p != last_file
+            extracted_path = self._extract_path_from_llm_response(text)
+            exists = os.path.exists(os.path.join(self.target_dir, extracted_path))
+            not_duplicate = extracted_path != last_file
             return exists and not_duplicate
 
         response = self.llm_engine.get_valid_llm_response(
             prompt, val, context="Target Selector"
         )
 
-        final_path = response.strip().replace("`", "").replace('"', "").replace("*", "")
-        if " " in final_path:
-            for part in final_path.split():
-                if "/" in part or part.endswith(".py"):
-                    final_path = part
-                    break
+        final_path = self._extract_path_from_llm_response(response)
 
         return str(final_path)
 
