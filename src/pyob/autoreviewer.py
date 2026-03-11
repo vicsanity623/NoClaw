@@ -198,42 +198,69 @@ class AutoReviewer(
 
         attempts: int = int(0)
         use_ollama = False
+        is_cloud = (
+            os.environ.get("GITHUB_ACTIONS") == "true"
+            or os.environ.get("CI") == "true"
+            or "GITHUB_RUN_ID" in os.environ
+        )
+
         while True:
             key = None
             now = time.time()
             available_keys = [
                 k for k, cooldown in self.key_cooldowns.items() if now > cooldown
             ]
+
             if not available_keys:
-                if not use_ollama:
+                if is_cloud:
                     logger.warning(
-                        "🚫 All Gemini keys are currently rate-limited. Falling back to Local Ollama."
+                        "☁️ Cloud environment: Gemini keys exhausted/limited. Sleeping 60s for refill..."
                     )
-                    use_ollama = True
+                    time.sleep(60)
+                    attempts += 1
+                    continue
+                else:
+                    if not use_ollama:
+                        logger.warning(
+                            "🚫 Gemini rate-limited. Falling back to Local Ollama."
+                        )
+                        use_ollama = True
             else:
                 use_ollama = False
                 key = available_keys[attempts % len(available_keys)]
                 logger.info(
                     f"\n[Attempting Gemini API Key {attempts % len(available_keys) + 1}/{len(available_keys)} Available]"
                 )
+
             if use_ollama:
                 logger.info("\n[Attempting Local Ollama]")
+
             response_text = self._stream_single_llm(
                 prompt, key=key, context=display_name
             )
-            if response_text.startswith("ERROR_CODE_429"):
-                if key:
-                    logger.warning(
-                        "⚠️ Key hit a 429 rate limit. Putting it in a 20-minute timeout."
-                    )
-                    self.key_cooldowns[key] = time.time() + 1200
-                attempts += 1
-                continue
-            if response_text.startswith("ERROR_CODE_") or not response_text.strip():
-                logger.warning("⚠️ API Error or Empty Response. Rotating...")
+
+            if "ERROR_CODE_413" in response_text:
+                logger.warning(
+                    "⚠️ GitHub Models context too large (413). Sleeping 60s..."
+                )
                 time.sleep(60)
                 attempts += 1
                 continue
+
+            if response_text.startswith("ERROR_CODE_429"):
+                if key:
+                    logger.warning("⚠️ Key hit a 429 rate limit. Timeout 20m.")
+                    self.key_cooldowns[key] = time.time() + 1200
+                time.sleep(60)
+                attempts += 1
+                continue
+
+            if response_text.startswith("ERROR_CODE_") or not response_text.strip():
+                logger.warning("⚠️ API Error or Empty Response. Backing off 60s...")
+                time.sleep(60)
+                attempts += 1
+                continue
+
             new_code, explanation, edit_success = self.apply_xml_edits(
                 source_code, response_text
             )
@@ -251,45 +278,34 @@ class AutoReviewer(
                         "🤖 AI stated the code looks good, but hallucinated empty <EDIT> blocks. Ignoring them."
                     )
                 return source_code, explanation, response_text
+
             if edit_count > 0 and not edit_success:
                 logger.warning(
-                    f"⚠️ Partial edit failure in {display_name} ({edit_count} blocks found, but some missed targets). Auto-regenerating..."
+                    f"⚠️ Partial edit failure in {display_name}. Auto-regenerating..."
                 )
-                time.sleep(60)
+                time.sleep(30)
                 attempts += 1
                 continue
+
             if require_edit and new_code == source_code:
                 logger.warning("Search block mismatch. Rotating...")
-                time.sleep(60)
+                time.sleep(30)
                 attempts += 1
                 continue
+
             if not require_edit and new_code == source_code:
-                lower_exp = explanation.lower()
-                if (
-                    "no fixes needed" in lower_exp
-                    or "looks good" in lower_exp
-                    or "no changes needed" in lower_exp
-                ):
+                if ai_approved_code:
                     return new_code, explanation, response_text
                 else:
-                    if edit_count > 0:
-                        logger.warning(
-                            f"⚠️ AI generated {edit_count} <EDIT> blocks, but <SEARCH> text failed to match. Rotating..."
-                        )
-                    else:
-                        logger.warning(
-                            f"⚠️ AI provided no edit and didn't state: [{display_name}] looks good. Rotating..."
-                        )
-                    time.sleep(60)
+                    logger.warning("⚠️ AI provided no edit and no approval. Rotating...")
+                    time.sleep(30)
                     attempts += 1
                     continue
+
             if new_code != source_code:
                 print("\n" + "=" * 50)
                 print(f"💡 AI Proposed Edit Ready for: [{display_name}]")
                 print("=" * 50)
-                print(
-                    f"AI Thought: {explanation[:400]}{'...' if len(explanation) > 400 else ''}"
-                )
                 diff_lines = list(
                     difflib.unified_diff(
                         source_code.splitlines(keepends=True),
@@ -298,7 +314,6 @@ class AutoReviewer(
                         tofile="Proposed",
                     )
                 )
-                print("\nProposed Changes:\n")
                 for line in diff_lines[2:22]:
                     clean_line = line.rstrip()
                     if clean_line.startswith("+"):
@@ -309,39 +324,26 @@ class AutoReviewer(
                         print(f"\033[94m{clean_line}\033[0m")
                     else:
                         print(clean_line)
-                if len(diff_lines) > 22:
-                    print(f"\033[93m... and {len(diff_lines) - 22} more lines.\033[0m")
+
                 user_choice = self.get_user_approval(
-                    "Hit ENTER to APPLY, type 'FULL_DIFF' to view full diff, 'EDIT_CODE' to refine code manually, 'EDIT_XML' to refine AI XML, 'REGENERATE' to retry AI, or 'SKIP' to cancel.",
+                    "Hit ENTER to APPLY, type 'FULL_DIFF', 'EDIT_CODE', 'EDIT_XML', 'REGENERATE', or 'SKIP'.",
                     timeout=220,
                 )
+
                 if user_choice == "SKIP":
-                    logger.info("AI proposed edit skipped by user.")
                     return source_code, "Edit skipped by user.", ""
                 elif user_choice == "REGENERATE":
-                    logger.info("Regenerating AI edit...")
                     attempts += 1
                     continue
                 elif user_choice == "EDIT_XML":
-                    logger.info(
-                        "Opening AI XML response in editor for manual refinement..."
-                    )
                     response_text = self._edit_prompt_with_external_editor(
                         response_text
                     )
                     new_code, explanation, _ = self.apply_xml_edits(
                         source_code, response_text
                     )
-                    if new_code == source_code:
-                        logger.warning(
-                            "Edited XML failed to match code. Skipping edit."
-                        )
-                        return source_code, "Edit failed after manual refinement.", ""
                     return new_code, explanation, response_text
                 elif user_choice == "EDIT_CODE":
-                    logger.info(
-                        "Opening proposed code in editor for manual refinement..."
-                    )
                     file_ext = (
                         os.path.splitext(target_filepath)[1]
                         if target_filepath
@@ -350,86 +352,12 @@ class AutoReviewer(
                     edited_code = self._launch_external_code_editor(
                         new_code, file_suffix=file_ext
                     )
-                    if edited_code == new_code:
-                        logger.info(
-                            "No changes made in external editor. Proceeding with original AI proposal."
-                        )
-                        return new_code, explanation, response_text
-                    else:
-                        logger.info(
-                            "User manually refined code. Applying refined code."
-                        )
-                        return (
-                            edited_code,
-                            explanation + " (User refined code manually)",
-                            response_text,
-                        )
-                elif user_choice == "FULL_DIFF":
-                    full_diff_text = "".join(diff_lines)
-                    try:
-                        pager_cmd = os.environ.get("PAGER", "less -R").split()
-                        if sys.platform == "win32":
-                            pager_cmd = ["more"]
-                        process = subprocess.Popen(
-                            pager_cmd,
-                            stdin=subprocess.PIPE,
-                            stdout=sys.stdout,
-                            stderr=sys.stderr,
-                            text=True,
-                        )
-                        process.communicate(input=full_diff_text)
-                    except FileNotFoundError:
-                        for line in diff_lines:
-                            clean_line = line.rstrip()
-                            if clean_line.startswith("+"):
-                                print(f"\033[92m{clean_line}\033[0m")
-                            elif clean_line.startswith("-"):
-                                print(f"\033[91m{clean_line}\033[0m")
-                            elif clean_line.startswith("@@"):
-                                print(f"\033[94m{clean_line}\033[0m")
-                            else:
-                                print(clean_line)
-                    user_choice_after_diff = self.get_user_approval(
-                        "Hit ENTER to APPLY, type 'EDIT_CODE' to refine code manually, 'EDIT_XML' to refine AI XML, 'REGENERATE' to retry AI, or 'SKIP' to cancel.",
-                        timeout=220,
+                    return (
+                        edited_code,
+                        explanation + " (User refined code manually)",
+                        response_text,
                     )
-                    if user_choice_after_diff == "SKIP":
-                        return source_code, "Edit skipped by user.", ""
-                    elif user_choice_after_diff == "REGENERATE":
-                        attempts += 1
-                        continue
-                    elif user_choice_after_diff == "EDIT_XML":
-                        response_text = self._edit_prompt_with_external_editor(
-                            response_text
-                        )
-                        new_code, explanation, _ = self.apply_xml_edits(
-                            source_code, response_text
-                        )
-                        if new_code == source_code:
-                            return (
-                                source_code,
-                                "Edit failed after manual refinement.",
-                                "",
-                            )
-                        return new_code, explanation, response_text
-                    elif user_choice_after_diff == "EDIT_CODE":
-                        file_ext = (
-                            os.path.splitext(target_filepath)[1]
-                            if target_filepath
-                            else ".py"
-                        )
-                        edited_code = self._launch_external_code_editor(
-                            new_code, file_suffix=file_ext
-                        )
-                        if edited_code == new_code:
-                            return new_code, explanation, response_text
-                        else:
-                            return (
-                                edited_code,
-                                explanation + " (User refined code manually)",
-                                response_text,
-                            )
-                    return new_code, explanation, response_text
+
                 return new_code, explanation, response_text
 
     def scan_directory(self) -> list[str]:
