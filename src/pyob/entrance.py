@@ -271,7 +271,9 @@ class EntranceController:
                 cmd, cwd=self.target_dir, capture_output=True, text=True
             )
             if result.returncode != 0:
-                logger.warning(f"Git Command Failed: {' '.join(cmd)}\n{result.stderr}")
+                logger.warning(
+                    f"Git Command Failed: {' '.join(cmd)}\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+                )
                 return False
             return True
         except Exception as e:
@@ -484,11 +486,8 @@ class EntranceController:
                     text=True,
                     cwd=self.target_dir,
                     shell=(
-                        True
-                        if (sys.platform == "win32" and cmd and cmd[0] == "start")
-                        or (sys.platform == "darwin" and cmd and cmd[0] == "open")
-                        else False
-                    ),
+                        cmd and (cmd[0] == "start" or cmd[0] == "open")
+                    ),  # Only use shell=True for 'start'/'open' commands
                     close_fds=sys.platform != "win32",
                 )
 
