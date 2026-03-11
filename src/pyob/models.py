@@ -13,10 +13,15 @@ import requests
 logger = logging.getLogger("PyOuroBoros")
 
 try:
-    if os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true" or "GITHUB_RUN_ID" in os.environ:
+    if (
+        os.environ.get("GITHUB_ACTIONS") == "true"
+        or os.environ.get("CI") == "true"
+        or "GITHUB_RUN_ID" in os.environ
+    ):
         OLLAMA_AVAILABLE = False
     else:
         import ollama
+
         OLLAMA_AVAILABLE = True
 except ImportError:
     OLLAMA_AVAILABLE = False
@@ -32,9 +37,7 @@ def stream_gemini(prompt: str, api_key: str, on_chunk: Callable[[], None]) -> st
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": 0.1},
     }
-    response = requests.post(
-        url, headers=headers, json=data, stream=True, timeout=120
-    )
+    response = requests.post(url, headers=headers, json=data, stream=True, timeout=120)
     if response.status_code != 200:
         return f"ERROR_CODE_{response.status_code}: {response.text}"
     response_text = ""
@@ -52,7 +55,11 @@ def stream_gemini(prompt: str, api_key: str, on_chunk: Callable[[], None]) -> st
 
 
 def stream_ollama(prompt: str, on_chunk: Callable[[], None]) -> str:
-    if os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true" or "GITHUB_RUN_ID" in os.environ:
+    if (
+        os.environ.get("GITHUB_ACTIONS") == "true"
+        or os.environ.get("CI") == "true"
+        or "GITHUB_RUN_ID" in os.environ
+    ):
         logger.error(
             "🚫 SECURITY VIOLATION: Ollama called in Cloud environment. ABORTING."
         )
@@ -100,9 +107,7 @@ def stream_github_models(
         "Content-Type": "application/json",
     }
 
-    actual_model = (
-        "Llama-3.3-70B-Instruct" if model_name == "Llama-3" else "Phi-4"
-    )
+    actual_model = "Llama-3.3-70B-Instruct" if model_name == "Llama-3" else "Phi-4"
 
     data = {
         "model": actual_model,
@@ -140,9 +145,7 @@ def stream_github_models(
             try:
                 chunk = json.loads(line_str)
                 content = (
-                    chunk.get("choices", [{}])[0]
-                    .get("delta", {})
-                    .get("content", "")
+                    chunk.get("choices", [{}])[0].get("delta", {}).get("content", "")
                 )
                 if content:
                     full_text += content
@@ -164,7 +167,11 @@ def stream_single_llm(
     input_tokens = len(prompt) // 4
     first_chunk_received = [False]
     gen_start_time = time.time()
-    is_cloud = os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true" or "GITHUB_RUN_ID" in os.environ
+    is_cloud = (
+        os.environ.get("GITHUB_ACTIONS") == "true"
+        or os.environ.get("CI") == "true"
+        or "GITHUB_RUN_ID" in os.environ
+    )
 
     def spinner():
         spinner_chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
@@ -191,9 +198,7 @@ def stream_single_llm(
             first_chunk_received[0] = True
             sys.stdout.write("\r\033[K")
             sys.stdout.flush()
-            source = (
-                f"Gemini ...{key[-4:]}" if key else f"GitHub Models ({gh_model})"
-            )
+            source = f"Gemini ...{key[-4:]}" if key else f"GitHub Models ({gh_model})"
             if not key and not is_cloud:
                 source = "Local Ollama"
             print(f"🤖 AI Output ({source}): ", end="", flush=True)
@@ -203,9 +208,7 @@ def stream_single_llm(
         if key is not None:
             response_text = stream_gemini(prompt, key, on_chunk)
         elif is_cloud:
-            response_text = stream_github_models(
-                prompt, on_chunk, model_name=gh_model
-            )
+            response_text = stream_github_models(prompt, on_chunk, model_name=gh_model)
         else:
             response_text = stream_ollama(prompt, on_chunk)
     except Exception as e:
@@ -220,9 +223,18 @@ def stream_single_llm(
     return response_text
 
 
-def get_valid_llm_response_engine(prompt: str, validator: Callable[[str], bool], key_cooldowns: dict[str, float], context: str = "") -> str:
+def get_valid_llm_response_engine(
+    prompt: str,
+    validator: Callable[[str], bool],
+    key_cooldowns: dict[str, float],
+    context: str = "",
+) -> str:
     attempts = 0
-    is_cloud = os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true" or "GITHUB_RUN_ID" in os.environ
+    is_cloud = (
+        os.environ.get("GITHUB_ACTIONS") == "true"
+        or os.environ.get("CI") == "true"
+        or "GITHUB_RUN_ID" in os.environ
+    )
     all_keys = list(key_cooldowns.keys())
 
     while True:
@@ -236,47 +248,54 @@ def get_valid_llm_response_engine(prompt: str, validator: Callable[[str], bool],
             logger.info(
                 f"Attempting Gemini Key {attempts % len(available_keys) + 1}/{len(available_keys)}"
             )
-            response_text = stream_single_llm(
-                prompt, key=key, context=context
-            )
+            response_text = stream_single_llm(prompt, key=key, context=context)
         elif is_cloud:
-            logger.warning(
-                "⏳ Gemini limited. Pivoting to GitHub Models (Llama-3)..."
-            )
+            logger.warning("⏳ Gemini limited. Pivoting to GitHub Models (Llama-3)...")
             response_text = stream_single_llm(
                 prompt, key=None, context=context, gh_model="Llama-3"
             )
         else:
             logger.info("🏠 Using Local Ollama Engine...")
-            response_text = stream_single_llm(
-                prompt, key=None, context=context
-            )
+            response_text = stream_single_llm(prompt, key=None, context=context)
 
         if not response_text or response_text.startswith("ERROR_CODE_"):
-            
             if key and response_text and "429" in response_text:
                 key_cooldowns[key] = time.time() + 1200
                 logger.warning(f"⚠️ Key {key[-4:]} rate-limited. Rotating...")
                 if is_cloud:
-                    logger.warning("☁️ Gemini limited. Pivoting to GitHub Models (Llama-3)...")
-                    response_text = stream_single_llm(prompt, key=None, context=context, gh_model="Llama-3")
+                    logger.warning(
+                        "☁️ Gemini limited. Pivoting to GitHub Models (Llama-3)..."
+                    )
+                    response_text = stream_single_llm(
+                        prompt, key=None, context=context, gh_model="Llama-3"
+                    )
 
             if response_text and "413" in response_text:
-                logger.warning("⚠️ GitHub Models context too large (413). Pivoting to Gemini...")
+                logger.warning(
+                    "⚠️ GitHub Models context too large (413). Pivoting to Gemini..."
+                )
                 if all_keys:
                     fallback_key = all_keys[attempts % len(all_keys)]
-                    response_text = stream_single_llm(prompt, key=fallback_key, context=context)
+                    response_text = stream_single_llm(
+                        prompt, key=fallback_key, context=context
+                    )
                     time.sleep(15)
                 else:
                     logger.error("No Gemini keys available for large context fallback.")
                     time.sleep(30)
 
-            if is_cloud and (not response_text or response_text.startswith("ERROR_CODE_")):
+            if is_cloud and (
+                not response_text or response_text.startswith("ERROR_CODE_")
+            ):
                 if response_text and "413" in response_text:
-                    pass 
+                    pass
                 else:
-                    logger.warning("☁️ Llama-3 failed. Pivoting to GitHub Models (Phi-4)...")
-                    response_text = stream_single_llm(prompt, key=None, context=context, gh_model="Phi-4")
+                    logger.warning(
+                        "☁️ Llama-3 failed. Pivoting to GitHub Models (Phi-4)..."
+                    )
+                    response_text = stream_single_llm(
+                        prompt, key=None, context=context, gh_model="Phi-4"
+                    )
 
             if not response_text or response_text.startswith("ERROR_CODE_"):
                 wait = 60
