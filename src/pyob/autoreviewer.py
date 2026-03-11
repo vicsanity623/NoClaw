@@ -214,14 +214,16 @@ class AutoReviewer(
             if not available_keys:
                 if is_cloud:
                     # Check if we've been stuck for a while
-                    logger.warning("☁️ Cloud environment: Keys exhausted. Checking if cooldowns can be cleared...")
-                    
-                    # FORCE RESET: If we are in the cloud and all keys are dead, 
-                    # we must clear the cooldowns to attempt a retry, 
+                    logger.warning(
+                        "☁️ Cloud environment: Keys exhausted. Checking if cooldowns can be cleared..."
+                    )
+
+                    # FORCE RESET: If we are in the cloud and all keys are dead,
+                    # we must clear the cooldowns to attempt a retry,
                     # otherwise the pipeline is effectively dead.
                     for key in self.key_cooldowns:
                         self.key_cooldowns[key] = 0.0
-                    
+
                     time.sleep(60)
                     attempts += 1
                     continue
