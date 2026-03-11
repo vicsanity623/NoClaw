@@ -215,10 +215,8 @@ def stream_single_llm(
             # Immediately intercept 413, pause 60s, and force Gemini usage so outer loops don't panic
             if response_text and "413" in response_text:
                 first_chunk_received[0] = True
-                sys.stdout.write("\r\033[K")
-                sys.stdout.flush()
                 logger.warning(
-                    "\n⚠️ Payload too large for GitHub Models (413). Sleeping 60s, then pivoting to Gemini..."
+                    "\n⚠️ Payload too large. Sleeping 60s, then pivoting to Gemini..."
                 )
                 time.sleep(60)
                 gemini_keys = [
@@ -227,9 +225,10 @@ def stream_single_llm(
                     if k.strip()
                 ]
                 if gemini_keys:
-                    response_text = stream_gemini(prompt, gemini_keys[0], on_chunk)
+                    # Return a specific signal string so the caller knows it worked
+                    return stream_gemini(prompt, gemini_keys[0], on_chunk)
                 else:
-                    response_text = "ERROR_CODE_413_NO_GEMINI_FALLBACK"
+                    return "ERROR_CODE_413_NO_GEMINI_FALLBACK"
 
             # Force mandatory sleep if ANY cloud error escapes, breaking infinite loop triggers
             if response_text and response_text.startswith("ERROR_CODE_"):
