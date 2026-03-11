@@ -380,7 +380,8 @@ class EntranceController:
 
     def _extract_path_from_llm_response(self, text: str) -> str:
         """Extracts a clean relative file path from a potentially conversational LLM response."""
-        cleaned_text = text.strip().replace("`", "").replace('"', "").replace("*", "")
+        # Remove common markdown formatting and quotes
+        cleaned_text = re.sub(r"[`\"*]", "", text).strip()
         if " " in cleaned_text:
             parts = cleaned_text.split()
             for part in parts:
