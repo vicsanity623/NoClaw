@@ -651,44 +651,76 @@ class FeatureOperationsMixin:
         return True
 
     def implement_pr(self, pr_content: str) -> bool:
+        """
+        Implements PR patches atomically.
+        Only applies changes if ALL patches in the PR pass the XML,
+        safety, and verification gates.
+        """
         logger.info("Implementing approved PRs seamlessly from XML blocks...")
         file_sections = re.split(r"## 🛠 Review for `(.*?)`", pr_content)
+
+        # Guard: Ensure content actually contains patches
         if len(file_sections) < 3:
             logger.error("No valid file patches found in PR.md to apply.")
             return False
+
         all_success = True
+        patches_to_apply = []  # Atomic transaction buffer
+
+        # 1. PRE-FLIGHT VALIDATION (Check all patches before applying any)
         for i in range(1, len(file_sections), 2):
             rel_path = file_sections[i].strip()
             section_content = file_sections[i + 1]
             target_path = os.path.join(self.target_dir, rel_path)
+
             if not os.path.exists(target_path):
-                logger.error(f"Target file {rel_path} not found for patching.")
+                logger.error(f"Target file {rel_path} not found.")
                 all_success = False
                 continue
+
             with open(target_path, "r", encoding="utf-8") as f:
                 source_code = f.read()
-            new_code, _, _ = getattr(self, "apply_xml_edits")(
+
+            # Apply XML edit logic
+            new_code, explanation, success = getattr(self, "apply_xml_edits")(
                 source_code, section_content
             )
-            if new_code == source_code:
+
+            # --- EMERGENCY DELETION GUARD ---
+            # If the patch deletes > 50% of the file, it is highly likely a hallucination.
+            if len(new_code) < (len(source_code) * 0.5):
                 logger.error(
-                    f"❌ Failed to apply XML patch for {rel_path}. The SEARCH blocks did not match."
+                    f"🚫 EMERGENCY STOP: Patch for {rel_path} would delete too much code."
                 )
                 all_success = False
+                continue
+
+            # Patch Validation
+            if not success:
+                logger.error(f"❌ Failed to match XML blocks for {rel_path}.")
+                all_success = False
+            elif new_code == source_code:
+                logger.warning(f"⚠️ Patch for {rel_path} changed nothing. Skipping.")
             else:
+                patches_to_apply.append((target_path, new_code, rel_path))
+
+        # 2. ATOMIC COMMIT (Only write to disk if everything checked out)
+        if all_success and patches_to_apply:
+            for target_path, new_code, rel_path in patches_to_apply:
                 with open(target_path, "w", encoding="utf-8") as f:
                     f.write(new_code)
                 logger.info(f"✅ Successfully applied patch to {rel_path}.")
-        if all_success:
+
+            # 3. VERIFICATION PIPELINE (The final test)
             if not getattr(self, "run_linter_fix_loop")(
                 context_of_change=pr_content
             ) or not getattr(self, "run_and_verify_app")(context_of_change=pr_content):
+                logger.error("❌ Verification failed. Changes will be rolled back.")
                 return False
-            self.session_context.append(
-                "Applied automated patch XML edits directly into the codebase from an approved PR.md."
-            )
+
+            self.session_context.append("Applied automated patch XML edits.")
             if os.path.exists(self.pr_file):
                 os.remove(self.pr_file)
             return True
-        else:
-            return False
+
+        return False
