@@ -549,10 +549,15 @@ class CoreUtilsMixin:
                 return response_text
             else:
                 # If it failed validation, TRY TO CLEAN IT and re-validate
-                clean_text = re.sub(r'^(Here is the code:)|(I suggest:)|(```)', '', response_text, flags=re.IGNORECASE)
+                clean_text = re.sub(
+                    r"^(Here is the code:)|(I suggest:)|(```)",
+                    "",
+                    response_text,
+                    flags=re.IGNORECASE,
+                )
                 if validator(clean_text):
                     return clean_text
-                
+
                 logger.warning("⚠️ Response invalid. Backing off 15s...")
                 time.sleep(15)
                 attempts += 1
