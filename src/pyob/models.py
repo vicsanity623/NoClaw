@@ -87,7 +87,8 @@ def stream_ollama(prompt: str, on_chunk: Callable[[], None]) -> str:
                 response_text += content
     except Exception as e:
         logger.error(f"Ollama Error: {e}")
-        time.sleep(10)
+        time.sleep(15)
+        return f"ERROR_CODE_EXCEPTION: {e}"
     return response_text
 
 
@@ -209,10 +210,33 @@ def stream_single_llm(
             response_text = stream_gemini(prompt, key, on_chunk)
         elif is_cloud:
             response_text = stream_github_models(prompt, on_chunk, model_name=gh_model)
+
+            if response_text and "413" in response_text:
+                first_chunk_received[0] = True
+                sys.stdout.write("\r\033[K")
+                sys.stdout.flush()
+                logger.warning(
+                    "\n⚠️ Payload too large for GitHub Models (413). Sleeping 60s, then pivoting to Gemini..."
+                )
+                time.sleep(60)
+                gemini_keys = [
+                    k.strip()
+                    for k in os.environ.get("PYOB_GEMINI_KEYS", "").split(",")
+                    if k.strip()
+                ]
+                if gemini_keys:
+                    response_text = stream_gemini(prompt, gemini_keys[0], on_chunk)
+                else:
+                    response_text = "ERROR_CODE_413_NO_GEMINI_FALLBACK"
+
+            if response_text and response_text.startswith("ERROR_CODE_"):
+                time.sleep(15)
         else:
             response_text = stream_ollama(prompt, on_chunk)
     except Exception as e:
         first_chunk_received[0] = True
+        if is_cloud:
+            time.sleep(15)
         return f"ERROR_CODE_EXCEPTION: {e}"
 
     first_chunk_received[0] = True
@@ -269,20 +293,6 @@ def get_valid_llm_response_engine(
                     response_text = stream_single_llm(
                         prompt, key=None, context=context, gh_model="Llama-3"
                     )
-
-            if response_text and "413" in response_text:
-                logger.warning(
-                    "⚠️ GitHub Models context too large (413). Pivoting to Gemini..."
-                )
-                if all_keys:
-                    fallback_key = all_keys[attempts % len(all_keys)]
-                    response_text = stream_single_llm(
-                        prompt, key=fallback_key, context=context
-                    )
-                    time.sleep(15)
-                else:
-                    logger.error("No Gemini keys available for large context fallback.")
-                    time.sleep(30)
 
             if is_cloud and (
                 not response_text or response_text.startswith("ERROR_CODE_")
