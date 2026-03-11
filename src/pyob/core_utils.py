@@ -352,16 +352,13 @@ class CoreUtilsMixin:
             return "ERROR_CODE_TOKEN_MISSING"
 
         # Determine model ID based on the passed name
-        actual_model = (
-            "microsoft/Phi-4"
-            if model_name == "Phi-4"
-            else "Meta-Llama-3.3-70B-Instruct"
-        )
-
-        endpoint = "https://models.inference.ai.azure.com/chat/completions"
+        model_id = "Phi-4" if model_name == "Phi-4" else "Meta-Llama-3.3-70B-Instruct"
+        
+        # Azure Inference endpoint requires a specific header for model auth
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
+            "x-ms-model-name": model_id # Add this header!
         }
 
         data = {
@@ -379,14 +376,12 @@ class CoreUtilsMixin:
 
         full_text = ""
         try:
-            response = requests.post(
-                endpoint, headers=headers, json=data, stream=True, timeout=120
-            )
+            response = requests.post(endpoint, headers=headers, json=data, stream=True, timeout=120)
+            
+            # FORCE LOGGING OF THE ERROR
             if response.status_code != 200:
-                # Log the specific error for debugging
-                logger.error(
-                    f"❌ GitHub Models ({actual_model}) Error {response.status_code}: {response.text}"
-                )
+                logger.error(f"❌ AZURE INFERENCE FAILED: {response.status_code}")
+                logger.error(f"❌ RESPONSE TEXT: {response.text}")
                 return f"ERROR_CODE_{response.status_code}"
 
             for line in response.iter_lines():
