@@ -343,28 +343,34 @@ class CoreUtilsMixin:
             logger.error(f"Ollama Error: {e}")
         return response_text
 
-    def stream_github_models(self, prompt: str, on_chunk, model_name: str = "Phi-4") -> str:
+    def stream_github_models(
+        self, prompt: str, on_chunk, model_name: str = "Phi-4"
+    ) -> str:
         """Fallback to GitHub Models API with dynamic model selection."""
         token = os.environ.get("GITHUB_TOKEN")
         if not token:
             return "ERROR_CODE_TOKEN_MISSING"
 
         # Determine model ID based on the passed name
-        actual_model = "microsoft/Phi-4" if model_name == "Phi-4" else "Meta-Llama-3.3-70B-Instruct"
+        actual_model = (
+            "microsoft/Phi-4"
+            if model_name == "Phi-4"
+            else "Meta-Llama-3.3-70B-Instruct"
+        )
 
         endpoint = "https://models.inference.ai.azure.com/chat/completions"
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         }
-        
+
         data = {
             "messages": [
                 {
-                    "role": "system", 
-                    "content": "You are a code generation engine. Output ONLY raw code, no intro/outro."
+                    "role": "system",
+                    "content": "You are a code generation engine. Output ONLY raw code, no intro/outro.",
                 },
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": prompt},
             ],
             "model": actual_model,
             "stream": True,
@@ -378,7 +384,9 @@ class CoreUtilsMixin:
             )
             if response.status_code != 200:
                 # Log the specific error for debugging
-                logger.error(f"❌ GitHub Models ({actual_model}) Error {response.status_code}: {response.text}")
+                logger.error(
+                    f"❌ GitHub Models ({actual_model}) Error {response.status_code}: {response.text}"
+                )
                 return f"ERROR_CODE_{response.status_code}"
 
             for line in response.iter_lines():
