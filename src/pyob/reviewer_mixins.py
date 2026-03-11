@@ -652,7 +652,7 @@ class FeatureOperationsMixin:
 
     def implement_pr(self, pr_content: str) -> bool:
         """
-        Implements PR patches atomically. 
+        Implements PR patches atomically.
         Only applies changes if ALL patches in the PR pass the XML,
         safety, and verification gates.
         """
