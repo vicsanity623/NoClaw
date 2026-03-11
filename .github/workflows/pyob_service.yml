@@ -36,9 +36,8 @@ jobs:
       - name: Run PyOB Service
         env:
           PYOB_GEMINI_KEYS: ${{ secrets.PYOB_GEMINI_KEYS }}
-          # Use the built-in GITHUB_TOKEN here. It is automatically 
-          # granted the 'id-token: write' permission by GitHub.
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          # This pulls the token from your new secret name
+          GITHUB_TOKEN: ${{ secrets.AI_MODELS_TOKEN }} 
         run: |
           git config --global user.email "pyob-bot@users.noreply.github.com"
           git config --global user.name "pyob-bot"
