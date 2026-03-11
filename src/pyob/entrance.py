@@ -692,8 +692,10 @@ src/pyob/core_utils.py
             except Exception as e:
                 logger.warning(f"Failed to parse Python AST for {rel_path}: {e}")
         elif ext in [".js", ".ts"]:
+            # Improved regex to capture more JS/TS definition patterns, including export/async modifiers
             defs = re.findall(
-                r"(?:function|class|const|var|let)\s+([a-zA-Z0-9_$]+)", code
+                r"(?:export\s+|async\s+)?(?:function\*?|class|const|var|let)\s+([a-zA-Z0-9_$]+)",
+                code,
             )
             for d in defs:
                 if len(d) > 3:
