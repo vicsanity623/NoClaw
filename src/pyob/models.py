@@ -107,7 +107,7 @@ def stream_github_models(
         "Content-Type": "application/json",
     }
 
-    actual_model = "Meta-Llama-3.3-70B-Instruct" if model_name == "Llama-3" else "Phi-4"
+    actual_model = "Llama-3.3-70B-Instruct" if model_name == "Llama-3" else "Phi-4"
 
     data = {
         "model": actual_model,
