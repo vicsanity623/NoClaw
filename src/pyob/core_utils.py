@@ -494,14 +494,10 @@ class CoreUtilsMixin:
                 # GitHub Models logic
                 gh_model = "Llama-3" if attempts > 0 else "Phi-4"
                 logger.warning(f"☁️ Pivoting to GitHub Models ({gh_model})...")
-                response_text = self._stream_single_llm(
-                    prompt, key=None, context=context, gh_model=gh_model
-                )
+                response_text = self._stream_single_llm(prompt, key=None, context=context, gh_model=gh_model)
             else:
                 logger.info("🏠 Using Local Ollama Engine...")
-                response_text = self._stream_single_llm(
-                    prompt, key=None, context=context
-                )
+                response_text = self._stream_single_llm(prompt, key=None, context=context)
 
             # 3. Handle Cloud Failure & Sleep (The "Machine Gun" stopper)
             if is_cloud and (
