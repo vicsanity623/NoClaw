@@ -436,7 +436,7 @@ class CoreUtilsMixin:
                 first_chunk_received[0] = True
                 sys.stdout.write("\r\033[K")
                 sys.stdout.flush()
-                source = f"Gemini ...{key[-4:]}" if key else "GitHub Models"
+                source = f"Gemini ...{key[-4:]}" if key else f"GitHub Models ({gh_model})"
                 if not key and not is_cloud:
                     source = "Local Ollama"
                 print(f"🤖 AI Output ({source}): ", end="", flush=True)
@@ -444,103 +444,73 @@ class CoreUtilsMixin:
         response_text = ""
         try:
             if key is not None:
-                # 1. Primary: Gemini
                 response_text = self.stream_gemini(prompt, key, on_chunk)
             elif is_cloud:
-                # 2. Cloud Fallback: GitHub Models ONLY
-                response_text = self.stream_github_models(prompt, on_chunk)
+                response_text = self.stream_github_models(prompt, on_chunk, model_name=gh_model)
             else:
-                # 3. Local Fallback: Ollama
                 response_text = self.stream_ollama(prompt, on_chunk)
         except Exception as e:
             first_chunk_received[0] = True
             return f"ERROR_CODE_EXCEPTION: {e}"
 
         first_chunk_received[0] = True
-        # If response is empty, return a clear error code for the loop to handle
-        if not response_text:
-            return "ERROR_CODE_EMPTY"
-
-        final_time = time.time() - gen_start_time
         if response_text and not response_text.startswith("ERROR_CODE_"):
-            print(
-                f"\n\n[✅ Generation Complete: ~{len(response_text) // 4} tokens in {final_time:.1f}s]"
-            )
+            print(f"\n\n[✅ Generation Complete: ~{len(response_text) // 4} tokens in {time.time() - gen_start_time:.1f}s]")
         return response_text
 
     def get_valid_llm_response(self, prompt: str, validator, context: str = "") -> str:
         attempts = 0
         is_cloud = os.environ.get("GITHUB_ACTIONS") == "true"
+        
+        # A simple pass-through callback for when we call stream methods directly
+        def empty_chunk(): pass
 
         while True:
             key = None
             now = time.time()
             available_keys = [k for k, cd in self.key_cooldowns.items() if now > cd]
 
-            # 1. Selection
+            # 1. Selection & Execution
             if available_keys:
                 key = available_keys[attempts % len(available_keys)]
-                logger.info(
-                    f"Attempting Gemini Key {attempts % len(available_keys) + 1}/{len(available_keys)}"
-                )
-
-            # 2. Execution (We perform the call ONCE per loop)
-            # We determine the mode and key here.
-            if key:
-                response_text = self._stream_single_llm(
-                    prompt, key=key, context=context
-                )
+                logger.info(f"Attempting Gemini Key {attempts % len(available_keys) + 1}/{len(available_keys)}")
+                response_text = self._stream_single_llm(prompt, key=key, context=context)
             elif is_cloud:
-                # GitHub Models logic
                 gh_model = "Llama-3" if attempts > 0 else "Phi-4"
                 logger.warning(f"☁️ Pivoting to GitHub Models ({gh_model})...")
-                response_text = self.stream_github_models(prompt, on_chunk, model_name=gh_model)
+                response_text = self._stream_single_llm(prompt, key=None, context=context, gh_model=gh_model)
             else:
                 logger.info("🏠 Using Local Ollama Engine...")
-                response_text = self._stream_single_llm(
-                    prompt, key=None, context=context
-                )
+                response_text = self._stream_single_llm(prompt, key=None, context=context)
 
-            # 3. Handle Cloud Failure & Sleep (The "Machine Gun" stopper)
-            if is_cloud and (
-                not response_text or response_text.startswith("ERROR_CODE_")
-            ):
+            # 2. Cloud Resilience (Handle Errors)
+            if is_cloud and (not response_text or response_text.startswith("ERROR_CODE_")):
                 if "429" in response_text and key:
                     self.key_cooldowns[key] = time.time() + 1200
-                    logger.warning(f"⚠️ Key {key[-4:]} rate-limited.")
-
-                # Mandatory 60s bucket refill nap if cloud engines fail
-                logger.warning("⚠️ All Cloud Engines failed/limited. Nap 60s...")
-                for i in range(60, 0, -10):
-                    print(f"⏳ Cooldown: {i}s remaining...")
-                    time.sleep(10)
+                
+                wait = 60
+                logger.warning(f"⚠️ API Error/Empty. Mandatory {wait}s nap...")
+                time.sleep(wait)
                 attempts += 1
                 continue
 
-            # 4. Handle Standard Local Errors
+            # 3. Standard Local Errors
             if not is_cloud and response_text.startswith("ERROR_CODE_"):
                 if "429" in response_text and key:
                     self.key_cooldowns[key] = time.time() + 1200
-                logger.warning("⚠️ Local Error. Backing off 10s...")
                 time.sleep(10)
                 attempts += 1
                 continue
 
-            # 5. Validation & Cleanup
+            # 4. Validation
             if validator(response_text):
-                if is_cloud:
-                    time.sleep(5)
+                if is_cloud: time.sleep(5)
                 return response_text
             else:
-                clean_text = re.sub(
-                    r"^(Here is the code:)|(I suggest:)|(```)",
-                    "",
-                    response_text,
-                    flags=re.IGNORECASE,
-                )
+                clean_text = re.sub(r"^(Here is the code:)|(I suggest:)|(```)", "", response_text, flags=re.IGNORECASE)
                 if validator(clean_text):
                     return clean_text
-
+                
                 wait = 20 if is_cloud else 5
                 logger.warning(f"⚠️ Invalid format. Backing off {wait}s...")
                 time.sleep(wait)
