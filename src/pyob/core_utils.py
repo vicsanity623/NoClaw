@@ -343,7 +343,9 @@ class CoreUtilsMixin:
             logger.error(f"Ollama Error: {e}")
         return response_text
 
-    def stream_github_models(self, prompt: str, on_chunk, model_name: str = "Phi-4") -> str:
+    def stream_github_models(
+        self, prompt: str, on_chunk, model_name: str = "Phi-4"
+    ) -> str:
         """Fallback to GitHub Models API using OpenAI-compatible format."""
         token = os.environ.get("GITHUB_TOKEN")
         if not token:
@@ -351,35 +353,44 @@ class CoreUtilsMixin:
 
         # GitHub Models inference endpoint
         endpoint = "https://models.inference.ai.azure.com/chat/completions"
-        
+
         # Standard OpenAI-compatible header
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         }
-        
+
         # Standard OpenAI-compatible payload (model goes in 'model' key, NOT a custom header)
-        actual_model = "Phi-4" if model_name == "Phi-4" else "Meta-Llama-3.3-70B-Instruct"
-        
+        actual_model = (
+            "Phi-4" if model_name == "Phi-4" else "Meta-Llama-3.3-70B-Instruct"
+        )
+
         data = {
             "model": actual_model,
             "messages": [
-                {"role": "system", "content": "You are a code generation engine. Output ONLY raw code."},
-                {"role": "user", "content": prompt}
+                {
+                    "role": "system",
+                    "content": "You are a code generation engine. Output ONLY raw code.",
+                },
+                {"role": "user", "content": prompt},
             ],
             "stream": True,
             "temperature": 0.1,
-            "max_tokens": 4096
+            "max_tokens": 4096,
         }
 
         full_text = ""
         try:
-            response = requests.post(endpoint, headers=headers, json=data, stream=True, timeout=120)
-            
+            response = requests.post(
+                endpoint, headers=headers, json=data, stream=True, timeout=120
+            )
+
             if response.status_code != 200:
                 # Log the actual error from GitHub
                 error_body = response.text
-                logger.error(f"❌ GitHub Models ({actual_model}) Error {response.status_code}: {error_body}")
+                logger.error(
+                    f"❌ GitHub Models ({actual_model}) Error {response.status_code}: {error_body}"
+                )
                 return f"ERROR_CODE_{response.status_code}"
 
             for line in response.iter_lines():
@@ -390,7 +401,11 @@ class CoreUtilsMixin:
                     break
                 try:
                     chunk = json.loads(line_str)
-                    content = chunk.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                    content = (
+                        chunk.get("choices", [{}])[0]
+                        .get("delta", {})
+                        .get("content", "")
+                    )
                     if content:
                         full_text += content
                         on_chunk()
