@@ -343,32 +343,28 @@ class CoreUtilsMixin:
             logger.error(f"Ollama Error: {e}")
         return response_text
 
-    def stream_github_models(
-        self, prompt: str, on_chunk, model_name: str = "Phi-4"
-    ) -> str:
+    def stream_github_models(self, prompt: str, on_chunk, model_name: str = "Phi-4") -> str:
         """Fallback to GitHub Models API with dynamic model selection."""
         token = os.environ.get("GITHUB_TOKEN")
         if not token:
-            return "ERROR_CODE_GITHUB_TOKEN_MISSING"
+            return "ERROR_CODE_TOKEN_MISSING"
+
+        # Determine model ID based on the passed name
+        actual_model = "microsoft/Phi-4" if model_name == "Phi-4" else "Meta-Llama-3.3-70B-Instruct"
 
         endpoint = "https://models.inference.ai.azure.com/chat/completions"
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         }
-
-        # Meta-Llama-3.3-70B-Instruct is the best secondary choice for coding
-        actual_model = (
-            "Meta-Llama-3.3-70B-Instruct" if model_name == "Llama-3" else "Phi-4"
-        )
-
+        
         data = {
             "messages": [
                 {
-                    "role": "system",
-                    "content": "You are a code generation engine. Output ONLY raw code, no conversational filler, no markdown introductions.",
+                    "role": "system", 
+                    "content": "You are a code generation engine. Output ONLY raw code, no intro/outro."
                 },
-                {"role": "user", "content": prompt},
+                {"role": "user", "content": prompt}
             ],
             "model": actual_model,
             "stream": True,
@@ -381,26 +377,27 @@ class CoreUtilsMixin:
                 endpoint, headers=headers, json=data, stream=True, timeout=120
             )
             if response.status_code != 200:
-                logger.error(
-                    f"❌ GitHub Models ({actual_model}) Error {response.status_code}: {response.text}"
-                )
+                # Log the specific error for debugging
+                logger.error(f"❌ GitHub Models ({actual_model}) Error {response.status_code}: {response.text}")
                 return f"ERROR_CODE_{response.status_code}"
 
             for line in response.iter_lines():
                 if line:
-                    decoded_line = line.decode("utf-8").replace("data: ", "")
-                    if decoded_line == "[DONE]":
+                    decoded = line.decode("utf-8").replace("data: ", "")
+                    if decoded == "[DONE]":
                         break
-                    try:
-                        chunk = json.loads(decoded_line)
-                        content = chunk["choices"][0]["delta"].get("content", "")
-                        if content:
-                            full_text += content
-                            on_chunk()
-                    except Exception:
-                        continue
+                    if decoded.startswith("{"):
+                        try:
+                            chunk = json.loads(decoded)
+                            content = chunk["choices"][0]["delta"].get("content", "")
+                            if content:
+                                full_text += content
+                                on_chunk()
+                        except (KeyError, json.JSONDecodeError):
+                            continue
             return full_text
         except Exception as e:
+            logger.error(f"❌ GitHub Models Exception: {e}")
             return f"ERROR_CODE_EXCEPTION: {e}"
 
     def _stream_single_llm(
