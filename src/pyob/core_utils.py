@@ -471,76 +471,57 @@ class CoreUtilsMixin:
     def get_valid_llm_response(self, prompt: str, validator, context: str = "") -> str:
         attempts = 0
         is_cloud = os.environ.get("GITHUB_ACTIONS") == "true"
-
-        # A simple pass-through callback for when we call stream methods directly
-        def empty_chunk():
-            pass
-
+        
         while True:
+            response_text = None
             key = None
-            now = time.time()
-            available_keys = [k for k, cd in self.key_cooldowns.items() if now > cd]
-
-            # 1. Selection & Execution
+            
+            # --- PHASE 1: ATTEMPT GEMINI KEYS ---
+            available_keys = [k for k, cd in self.key_cooldowns.items() if time.time() > cd]
             if available_keys:
                 key = available_keys[attempts % len(available_keys)]
-                logger.info(
-                    f"Attempting Gemini Key {attempts % len(available_keys) + 1}/{len(available_keys)}"
-                )
-                response_text = self._stream_single_llm(
-                    prompt, key=key, context=context
-                )
-            elif is_cloud:
-                gh_model = "Llama-3" if attempts > 0 else "Phi-4"
-                logger.warning(f"☁️ Pivoting to GitHub Models ({gh_model})...")
-                response_text = self._stream_single_llm(
-                    prompt, key=None, context=context, gh_model=gh_model
-                )
-            else:
-                logger.info("🏠 Using Local Ollama Engine...")
-                response_text = self._stream_single_llm(
-                    prompt, key=None, context=context
-                )
+                logger.info(f"Attempting Gemini Key {attempts % len(available_keys) + 1}/{len(available_keys)}")
+                response_text = self._stream_single_llm(prompt, key=key, context=context)
+            
+            # --- PHASE 2: PIVOT TO GITHUB MODELS (If Gemini fails or limited) ---
+            # We pivot if Gemini wasn't attempted, or if it returned an error
+            if not response_text or response_text.startswith("ERROR_CODE_"):
+                
+                # Try Phi-4 first
+                logger.warning("☁️ Pivoting to GitHub Models (Phi-4)...")
+                response_text = self._stream_single_llm(prompt, key=None, context=context, gh_model="Phi-4")
+                
+                # If Phi-4 fails, try Llama-3
+                if not response_text or response_text.startswith("ERROR_CODE_"):
+                    logger.warning("☁️ Phi-4 failed. Pivoting to GitHub Models (Llama-3)...")
+                    response_text = self._stream_single_llm(prompt, key=None, context=context, gh_model="Llama-3")
 
-            # 2. Cloud Resilience (Handle Errors)
-            if is_cloud and (
-                not response_text or response_text.startswith("ERROR_CODE_")
-            ):
+            # --- PHASE 3: FINAL EVALUATION & SLEEP ---
+            
+            # If after all relays, we still have an error, THEN we sleep
+            if not response_text or response_text.startswith("ERROR_CODE_"):
+                # Handle 429 specifically
                 if "429" in response_text and key:
                     self.key_cooldowns[key] = time.time() + 1200
-
-                wait = 60
-                logger.warning(f"⚠️ API Error/Empty. Mandatory {wait}s nap...")
+                
+                wait = 60 # Mandatory bucket refill
+                logger.warning(f"⚠️ All relay engines exhausted. Sleeping {wait}s...")
                 time.sleep(wait)
                 attempts += 1
                 continue
 
-            # 3. Standard Local Errors
-            if not is_cloud and response_text.startswith("ERROR_CODE_"):
-                if "429" in response_text and key:
-                    self.key_cooldowns[key] = time.time() + 1200
-                time.sleep(10)
-                attempts += 1
-                continue
-
-            # 4. Validation
+            # --- PHASE 4: VALIDATION ---
             if validator(response_text):
-                if is_cloud:
-                    time.sleep(5)
+                if is_cloud: time.sleep(2)
                 return response_text
             else:
-                clean_text = re.sub(
-                    r"^(Here is the code:)|(I suggest:)|(```)",
-                    "",
-                    response_text,
-                    flags=re.IGNORECASE,
-                )
+                # Cleanup hallucinated conversational filler
+                clean_text = re.sub(r"^(Here is the code:)|(I suggest:)|(```)", "", response_text, flags=re.IGNORECASE)
                 if validator(clean_text):
                     return clean_text
-
-                wait = 20 if is_cloud else 5
-                logger.warning(f"⚠️ Invalid format. Backing off {wait}s...")
-                time.sleep(wait)
+                
+                logger.warning("⚠️ Response invalid. Backing off 15s...")
+                time.sleep(15)
                 attempts += 1
 
     def _get_user_prompt_augmentation(self, initial_text: str = "") -> str:
