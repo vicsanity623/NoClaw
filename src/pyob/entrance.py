@@ -51,9 +51,7 @@ class EntranceController:
         self.analysis_path = os.path.join(self.pyob_dir, "ANALYSIS.md")
         self.history_path = os.path.join(self.pyob_dir, "HISTORY.md")
         self.symbols_path = os.path.join(self.pyob_dir, "SYMBOLS.json")
-        self.memory_path = os.path.join(
-            self.pyob_dir, "MEMORY.md"
-        )
+        self.memory_path = os.path.join(self.pyob_dir, "MEMORY.md")
         self.llm_engine = AutoReviewer(self.target_dir)
         self.code_parser = CodeParser()
         self.ledger = self.load_ledger()
