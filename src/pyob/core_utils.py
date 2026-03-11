@@ -307,7 +307,7 @@ class CoreUtilsMixin:
             "generationConfig": {"temperature": 0.1},
         }
         response = requests.post(
-            url, headers=headers, json=data, stream=True, timeout=220
+            url, headers=headers, json=data, stream=True, timeout=120
         )
         if response.status_code != 200:
             return f"ERROR_CODE_{response.status_code}: {response.text}"
@@ -431,9 +431,9 @@ class CoreUtilsMixin:
                         "⏳ CLOUD NOTICE: All Gemini keys rate-limited. Skipping Ollama."
                     )
                     logger.warning(
-                        "⏳ Sleeping for 1 hour before restarting Gemini API attempts..."
+                        "⏳ Sleeping for 2 min before restarting Gemini API attempts..."
                     )
-                    time.sleep(3600)  # Sleep exactly 1 hour
+                    time.sleep(120)  # Sleep exactly 1 hour
 
                     # Force restart Gemini API attempt by wiping all cooldown timers
                     for k in self.key_cooldowns:
@@ -476,7 +476,7 @@ class CoreUtilsMixin:
 
             if response_text.startswith("ERROR_CODE_429"):
                 if key:
-                    self.key_cooldowns[key] = time.time() + 3600
+                    self.key_cooldowns[key] = time.time() + 120
                 attempts += 1
                 continue
 
