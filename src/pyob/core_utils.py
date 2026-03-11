@@ -773,7 +773,6 @@ class CoreUtilsMixin:
             "server.js",
             "app.js",
             "index.html",
-            "index.htm",
         ]
 
         for f_name in priority_files:

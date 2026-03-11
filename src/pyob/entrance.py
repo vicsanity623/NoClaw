@@ -11,7 +11,7 @@ import threading
 import time
 from http.server import HTTPServer
 from pathlib import Path
-from typing import Optional  # Added Optional for type hinting
+from typing import Optional
 
 from pyob.autoreviewer import AutoReviewer
 from pyob.pyob_code_parser import CodeParser
@@ -51,16 +51,14 @@ class EntranceController:
         self.analysis_path = os.path.join(self.pyob_dir, "ANALYSIS.md")
         self.history_path = os.path.join(self.pyob_dir, "HISTORY.md")
         self.symbols_path = os.path.join(self.pyob_dir, "SYMBOLS.json")
-        self.memory_path = os.path.join(
-            self.pyob_dir, "MEMORY.md"
-        )  # For interactive memory editor
+        self.memory_path = os.path.join(self.pyob_dir, "MEMORY.md")
         self.llm_engine = AutoReviewer(self.target_dir)
         self.code_parser = CodeParser()
         self.ledger = self.load_ledger()
         self.cascade_queue: list[str] = []
         self.cascade_diffs: dict[str, str] = {}
         self.self_evolved_flag: bool = False
-        self.manual_target_file: Optional[str] = None  # NEW: For dashboard override
+        self.manual_target_file: Optional[str] = None
 
         self.current_iteration = 1
 
@@ -68,21 +66,12 @@ class EntranceController:
             self.start_dashboard()
 
     def start_dashboard(self):
-        # 1. Save to the internal .pyob folder (Local use)
+        # 1. Save to the internal .pyob folder
         obs_path = os.path.join(self.pyob_dir, "observer.html")
         with open(obs_path, "w", encoding="utf-8") as f:
             f.write(OBSERVER_HTML)
 
-        # 2. Save a copy to the root index.html (GitHub Pages use)
-        index_path = os.path.join(self.target_dir, "index.html")
-        try:
-            with open(index_path, "w", encoding="utf-8") as f:
-                f.write(OBSERVER_HTML)
-            logger.info(f"📊 Static HUD generated for GitHub Pages: {index_path}")
-        except Exception as e:
-            logger.warning(f"⚠️ Could not generate root index.html: {e}")
-
-        # 3. Initialize and Start the Live Server
+        # 2. Initialize and Start the Live Server
         ObserverHandler.controller = self
 
         def run_server():
