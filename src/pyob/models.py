@@ -235,11 +235,12 @@ def get_valid_llm_response_engine(
         or os.environ.get("CI") == "true"
         or "GITHUB_RUN_ID" in os.environ
     )
+    all_keys = list(key_cooldowns.keys())
 
     while True:
         key = None
         now = time.time()
-        available_keys = [k for k, cd in key_cooldowns.items() if now > cd]
+        available_keys = [k for k in all_keys if now > key_cooldowns[k]]
         response_text = None
 
         if available_keys:
@@ -258,20 +259,37 @@ def get_valid_llm_response_engine(
             response_text = stream_single_llm(prompt, key=None, context=context)
 
         if not response_text or response_text.startswith("ERROR_CODE_"):
-            if "429" in response_text and key:
+            if key and response_text and "429" in response_text:
                 key_cooldowns[key] = time.time() + 1200
                 logger.warning(f"⚠️ Key {key[-4:]} rate-limited. Rotating...")
-
-            if is_cloud:
-                if key:
+                if is_cloud:
                     logger.warning(
-                        "☁️ Gemini failed/limited. Pivoting to GitHub Models (Llama-3)..."
+                        "☁️ Gemini limited. Pivoting to GitHub Models (Llama-3)..."
                     )
                     response_text = stream_single_llm(
                         prompt, key=None, context=context, gh_model="Llama-3"
                     )
 
-                if not response_text or response_text.startswith("ERROR_CODE_"):
+            if response_text and "413" in response_text:
+                logger.warning(
+                    "⚠️ GitHub Models context too large (413). Pivoting to Gemini..."
+                )
+                if all_keys:
+                    fallback_key = all_keys[attempts % len(all_keys)]
+                    response_text = stream_single_llm(
+                        prompt, key=fallback_key, context=context
+                    )
+                    time.sleep(15)
+                else:
+                    logger.error("No Gemini keys available for large context fallback.")
+                    time.sleep(30)
+
+            if is_cloud and (
+                not response_text or response_text.startswith("ERROR_CODE_")
+            ):
+                if response_text and "413" in response_text:
+                    pass
+                else:
                     logger.warning(
                         "☁️ Llama-3 failed. Pivoting to GitHub Models (Phi-4)..."
                     )
@@ -279,21 +297,12 @@ def get_valid_llm_response_engine(
                         prompt, key=None, context=context, gh_model="Phi-4"
                     )
 
-                if not response_text or response_text.startswith("ERROR_CODE_"):
-                    wait = 60
-                    logger.warning(
-                        f"⚠️ All Cloud Engines failed. Sleeping {wait}s for refill..."
-                    )
-                    time.sleep(wait)
-                    attempts += 1
-                    continue
-
-        if not response_text or response_text.startswith("ERROR_CODE_"):
-            wait = 10 if not is_cloud else 5
-            logger.warning(f"⚠️ Generic LLM error. Backing off {wait}s...")
-            time.sleep(wait)
-            attempts += 1
-            continue
+            if not response_text or response_text.startswith("ERROR_CODE_"):
+                wait = 60
+                logger.warning(f"⚠️ All Engines failed. Sleeping {wait}s for refill...")
+                time.sleep(wait)
+                attempts += 1
+                continue
 
         if validator(response_text):
             if is_cloud:
