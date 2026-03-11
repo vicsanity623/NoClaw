@@ -15,7 +15,7 @@ echo "🚀 Starting PyOB Validation Suite..."
 
 echo "-------------------------------------"
 echo "🧹 1. Running Ruff (Linter & Imports)..."
-ruff check src/
+ruff check src/ --fix
 
 echo "-------------------------------------"
 echo "🪄  2. Formatting Code with Ruff..."
