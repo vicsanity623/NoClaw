@@ -440,9 +440,7 @@ class EntranceController:
         rel_entry_file = os.path.relpath(entry_file, self.target_dir)
 
         for attempt in range(3):
-            logger.info(
-                f"🚀 Launching `{rel_entry_file}` for test... (Attempt {attempt + 1}/3)"
-            )
+            logger.info(f"🚀 Launching `{rel_entry_file}` for test... (Attempt {attempt + 1}/3)")
 
             cmd: list[str] = []
             is_html = entry_file.endswith((".html", ".htm"))
@@ -450,32 +448,23 @@ class EntranceController:
             is_py = entry_file.endswith(".py")
 
             if is_py:
-                venv_python = os.path.join(
-                    self.target_dir, "build_env", "bin", "python3"
-                )
-                python_cmd = (
-                    venv_python if os.path.exists(venv_python) else sys.executable
-                )
+                venv_python = os.path.join(self.target_dir, "build_env", "bin", "python3")
+                python_cmd = venv_python if os.path.exists(venv_python) else sys.executable
                 cmd = [python_cmd, entry_file]
                 if os.path.basename(entry_file) == "entrance.py":
                     cmd.append("--no-dashboard")
             elif is_js:
-                cmd = (
-                    ["npm", "start"]
-                    if entry_file.endswith("package.json")
-                    else ["node", entry_file]
-                )
+                cmd = ["npm", "start"] if entry_file.endswith("package.json") else ["node", entry_file]
             elif is_html:
                 if os.environ.get("GITHUB_ACTIONS") == "true":
                     return True
-                cmd = (
-                    ["open", entry_file]
-                    if sys.platform == "darwin"
-                    else ["start", entry_file]
-                )
+                cmd = ["open", entry_file] if sys.platform == "darwin" else ["start", entry_file]
 
             if not cmd:
                 return True
+
+            # Determine shell usage before Popen to satisfy Mypy type checker
+            use_shell = bool(cmd and (cmd[0] == "start" or cmd[0] == "open"))
 
             start_time = time.time()
             try:
@@ -485,10 +474,8 @@ class EntranceController:
                     stderr=subprocess.PIPE,
                     text=True,
                     cwd=self.target_dir,
-                    shell=(
-                        cmd and (cmd[0] == "start" or cmd[0] == "open")
-                    ),  # Only use shell=True for 'start'/'open' commands
-                    close_fds=sys.platform != "win32",
+                    shell=use_shell,
+                    close_fds=sys.platform != "win32"
                 )
 
                 if is_html:
@@ -520,9 +507,7 @@ class EntranceController:
             if is_crash_code or has_error_logs:
                 logger.warning(f"⚠️ App crashed after {duration:.1f}s!")
                 if attempt < 2:
-                    self.llm_engine._fix_runtime_errors(
-                        stderr + "\n" + stdout, entry_file
-                    )
+                    self.llm_engine._fix_runtime_errors(stderr + "\n" + stdout, entry_file)
                 else:
                     logger.error("❌ Exhausted all 3 auto-fix attempts.")
             else:
