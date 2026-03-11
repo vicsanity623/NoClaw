@@ -383,16 +383,19 @@ class CoreUtilsMixin:
                 return f"ERROR_CODE_{response.status_code}"
 
             for line in response.iter_lines():
-                if not line: continue
+                if not line:
+                    continue
                 line_str = line.decode("utf-8").replace("data: ", "")
-                if line_str.strip() == "[DONE]": break
+                if line_str.strip() == "[DONE]":
+                    break
                 try:
                     chunk = json.loads(line_str)
                     content = chunk.get("choices", [{}])[0].get("delta", {}).get("content", "")
                     if content:
                         full_text += content
                         on_chunk()
-                except Exception: continue
+                except Exception:
+                    continue
             return full_text
         except Exception as e:
             logger.error(f"❌ GitHub Models Exception: {e}")
