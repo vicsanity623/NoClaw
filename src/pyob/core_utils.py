@@ -10,9 +10,15 @@ import termios
 import textwrap
 import time
 import tty
-from typing import Callable
+from typing import Callable, Optional
 
-from .models import get_valid_llm_response_engine
+from models import (
+    get_valid_llm_response_engine,
+    stream_gemini,
+    stream_github_models,
+    stream_ollama,
+    stream_single_llm,
+)
 
 env_keys = os.environ.get("PYOB_GEMINI_KEYS", "")
 GEMINI_API_KEYS = [k.strip() for k in env_keys.split(",") if k.strip()]
@@ -136,13 +142,20 @@ class CoreUtilsMixin:
     memory_file: str
     key_cooldowns: dict[str, float]
 
+    def stream_gemini(self, prompt: str, api_key: str, on_chunk: Callable[[], None]) -> str:
+        return stream_gemini(prompt, api_key, on_chunk)
+
+    def stream_ollama(self, prompt: str, on_chunk: Callable[[], None]) -> str:
+        return stream_ollama(prompt, on_chunk)
+
+    def stream_github_models(self, prompt: str, on_chunk: Callable[[], None], model_name: str = "Llama-3") -> str:
+        return stream_github_models(prompt, on_chunk, model_name)
+
+    def _stream_single_llm(self, prompt: str, key: Optional[str] = None, context: str = "", gh_model: str = "Llama-3") -> str:
+        return stream_single_llm(prompt, key, context, gh_model)
+
     def get_user_approval(self, prompt_text: str, timeout: int = 220) -> str:
-        if (
-            not sys.stdin.isatty()
-            or os.environ.get("GITHUB_ACTIONS") == "true"
-            or os.environ.get("CI") == "true"
-            or "GITHUB_RUN_ID" in os.environ
-        ):
+        if not sys.stdin.isatty() or os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true" or "GITHUB_RUN_ID" in os.environ:
             logger.info("🤖 Headless environment detected: Auto-approving action.")
             return "PROCEED"
         print(f"\n{prompt_text}")
@@ -293,14 +306,8 @@ class CoreUtilsMixin:
                 pass
         return ""
 
-    def get_valid_llm_response(
-        self, prompt: str, validator: Callable[[str], bool], context: str = ""
-    ) -> str:
-        return str(
-            get_valid_llm_response_engine(
-                prompt, validator, self.key_cooldowns, context
-            )
-        )
+    def get_valid_llm_response(self, prompt: str, validator: Callable[[str], bool], context: str = "") -> str:
+        return str(get_valid_llm_response_engine(prompt, validator, self.key_cooldowns, context))
 
     def _get_user_prompt_augmentation(self, initial_text: str = "") -> str:
         import tempfile
