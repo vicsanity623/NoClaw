@@ -1,4 +1,3 @@
-# models.py
 import json
 import logging
 import os
@@ -7,6 +6,7 @@ import shutil
 import sys
 import threading
 import time
+from typing import Callable, Optional
 
 import requests
 
@@ -30,7 +30,7 @@ GEMINI_MODEL = os.environ.get("PYOB_GEMINI_MODEL", "gemini-2.5-flash")
 LOCAL_MODEL = os.environ.get("PYOB_LOCAL_MODEL", "qwen3-coder:30b")
 
 
-def stream_gemini(prompt: str, api_key: str, on_chunk) -> str:
+def stream_gemini(prompt: str, api_key: str, on_chunk: Callable[[], None]) -> str:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:streamGenerateContent?alt=sse&key={api_key}"
     headers = {"Content-Type": "application/json"}
     data = {
@@ -54,7 +54,7 @@ def stream_gemini(prompt: str, api_key: str, on_chunk) -> str:
     return response_text
 
 
-def stream_ollama(prompt: str, on_chunk) -> str:
+def stream_ollama(prompt: str, on_chunk: Callable[[], None]) -> str:
     if (
         os.environ.get("GITHUB_ACTIONS") == "true"
         or os.environ.get("CI") == "true"
@@ -91,7 +91,9 @@ def stream_ollama(prompt: str, on_chunk) -> str:
     return response_text
 
 
-def stream_github_models(prompt: str, on_chunk, model_name: str = "Llama-3") -> str:
+def stream_github_models(
+    prompt: str, on_chunk: Callable[[], None], model_name: str = "Llama-3"
+) -> str:
     token = os.environ.get("GITHUB_TOKEN")
     if not token:
         logger.error("🚫 GITHUB_TOKEN is missing. Cannot use GitHub Models.")
@@ -158,7 +160,7 @@ def stream_github_models(prompt: str, on_chunk, model_name: str = "Llama-3") -> 
 
 def stream_single_llm(
     prompt: str,
-    key: str | None = None,
+    key: Optional[str] = None,
     context: str = "",
     gh_model: str = "Llama-3",
 ) -> str:
@@ -222,7 +224,10 @@ def stream_single_llm(
 
 
 def get_valid_llm_response_engine(
-    prompt: str, validator, key_cooldowns: dict[str, float], context: str = ""
+    prompt: str,
+    validator: Callable[[str], bool],
+    key_cooldowns: dict[str, float],
+    context: str = "",
 ) -> str:
     attempts = 0
     is_cloud = (
