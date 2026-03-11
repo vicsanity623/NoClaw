@@ -302,9 +302,12 @@ class AutoReviewer(
                 )
                 for line in diff_lines[2:22]:
                     clean_line = line.rstrip()
-                    if clean_line.startswith("+"): print(f"\033[92m{clean_line}\033[0m")
-                    elif clean_line.startswith("-"): print(f"\033[91m{clean_line}\033[0m")
-                    elif clean_line.startswith("@@"): print(f"\033[94m{clean_line}\033[0m")
+                    if clean_line.startswith("+"):
+                        print(f"\033[92m{clean_line}\033[0m")
+                    elif clean_line.startswith("-"):
+                        print(f"\033[91m{clean_line}\033[0m")
+                    elif clean_line.startswith("@@"):
+                        print(f"\033[94m{clean_line}\033[0m")
                     else: print(clean_line)
                 
                 user_choice = self.get_user_approval(
