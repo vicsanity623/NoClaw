@@ -178,10 +178,7 @@ class EntranceController(EntranceMixin):
 
     def run_master_loop(self):
         logger.info(
-            "\n"
-            + "=" * 60
-            + "\nENTRANCE CONTROLLER: SYMBOLIC MODE ACTIVE\n"
-            + "=" * 60
+            "\n" + "=" * 60 + "\nENTRANCE CONTROLLER: SYMBOLIC MODE ACTIVE\n" + "=" * 60
         )
         if not os.path.exists(self.analysis_path):
             self.build_initial_analysis()
@@ -207,9 +204,7 @@ class EntranceController(EntranceMixin):
 
             if self.self_evolved_flag:
                 if getattr(sys, "frozen", False):
-                    logger.warning(
-                        "COMPILED ENGINE EVOLVED: Initiating Forge Build."
-                    )
+                    logger.warning("COMPILED ENGINE EVOLVED: Initiating Forge Build.")
                     self.trigger_production_build()
                 else:
                     logger.warning(" SCRIPT ENGINE EVOLVED: Initiating Hot-Reboot.")
