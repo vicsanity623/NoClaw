@@ -92,6 +92,9 @@ IGNORE_FILES = {
     "README.md",
     "DOCUMENTATION.md",
     "observer.html",
+    "dashboard_html.py",
+    "feature_mixins.py",
+    "entrance_mixins.py",
 }
 SUPPORTED_EXTENSIONS = {".py", ".js", ".ts", ".html", ".css", ".json", ".sh"}
 
