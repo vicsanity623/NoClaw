@@ -198,8 +198,8 @@ class EntranceController(EntranceMixin):
                     capture_output=True,
                     text=True,
                 )
-
-                if any(ef in res.stdout for ef in self.ENGINE_FILES):
+                changed_files = res.stdout.strip().splitlines()
+                if any(os.path.basename(f) in self.ENGINE_FILES for f in changed_files):
                     logger.warning(
                         "🧠 REMOTE EVOLUTION: Engine files updated via sync. Rebooting..."
                     )
