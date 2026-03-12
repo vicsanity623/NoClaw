@@ -249,7 +249,6 @@ def stream_single_llm(
         )
     return response_text
 
-
 def get_valid_llm_response_engine(
     prompt: str,
     validator: Callable[[str], bool],
@@ -267,6 +266,7 @@ def get_valid_llm_response_engine(
     while True:
         key = None
         now = time.time()
+        # available_keys are Gemini keys
         available_keys = [k for k in all_keys if now > key_cooldowns[k]]
         response_text = None
 
@@ -277,46 +277,69 @@ def get_valid_llm_response_engine(
             )
             response_text = stream_single_llm(prompt, key=key, context=context)
         elif is_cloud:
-            logger.warning("⏳ Gemini limited. Pivoting to GitHub Models (Llama-3)...")
-            response_text = stream_single_llm(
-                prompt, key=None, context=context, gh_model="Llama-3"
-            )
+            # CHECK: Is Llama-3 specifically on a daily cooldown?
+            if now < key_cooldowns.get("github_llama", 0):
+                remaining = int(key_cooldowns["github_llama"] - now)
+                logger.warning(f"⏳ Llama-3 daily quota exhausted. {remaining}s remaining. Trying Phi-4...")
+                response_text = stream_single_llm(
+                    prompt, key=None, context=context, gh_model="Phi-4"
+                )
+            else:
+                logger.warning("⏳ Gemini limited. Pivoting to GitHub Models (Llama-3)...")
+                response_text = stream_single_llm(
+                    prompt, key=None, context=context, gh_model="Llama-3"
+                )
         else:
             logger.info("🏠 Using Local Ollama Engine...")
             response_text = stream_single_llm(prompt, key=None, context=context)
 
+        # --- ERROR HANDLING BLOCK ---
         if not response_text or response_text.startswith("ERROR_CODE_"):
+            # 1. Handle Gemini 429 (Minute limits)
             if key and response_text and "429" in response_text:
                 key_cooldowns[key] = time.time() + 60
                 logger.warning(f"⚠️ Key {key[-4:]} rate-limited. Rotating...")
+                # Immediate pivot attempt for this loop
                 if is_cloud:
-                    logger.warning(
-                        "☁️ Gemini limited. Pivoting to GitHub Models (Llama-3)..."
-                    )
+                    logger.warning("☁️ Gemini limited. Pivoting to GitHub Models (Llama-3)...")
                     response_text = stream_single_llm(
                         prompt, key=None, context=context, gh_model="Llama-3"
                     )
 
-            if is_cloud and (
-                not response_text or response_text.startswith("ERROR_CODE_")
-            ):
-                if response_text and "413" in response_text:
-                    pass
+            # 2. Handle GitHub 429 (Daily Quota Limits)
+            if response_text and "429" in response_text and "RateLimitReached" in response_text:
+                # Extract the wait time from the JSON message
+                match = re.search(r"wait (\d+) seconds", response_text)
+                seconds_to_wait = int(match.group(1)) if match else 86400
+                
+                # Determine which GH model failed and cool it down
+                if "Llama-3" in response_text or "llama" in response_text.lower():
+                    key_cooldowns["github_llama"] = time.time() + seconds_to_wait + 60
+                    logger.error(f"🛑 GITHUB DAILY QUOTA REACHED (Llama-3). Cooldown: {seconds_to_wait}s")
                 else:
-                    logger.warning(
-                        "☁️ Llama-3 failed. Pivoting to GitHub Models (Phi-4)..."
-                    )
+                    key_cooldowns["github_phi"] = time.time() + seconds_to_wait + 60
+                    logger.error(f"🛑 GITHUB DAILY QUOTA REACHED (Phi-4). Cooldown: {seconds_to_wait}s")
+
+            # 3. Handle Cloud Fallbacks (Llama -> Phi)
+            if is_cloud and (not response_text or response_text.startswith("ERROR_CODE_")):
+                if response_text and "413" in response_text:
+                    pass # Too large, don't pivot
+                else:
+                    # If we haven't already tried Phi-4 this loop
+                    logger.warning("☁️ Model failed or limited. Pivoting to GitHub Models (Phi-4)...")
                     response_text = stream_single_llm(
                         prompt, key=None, context=context, gh_model="Phi-4"
                     )
 
+            # 4. Final Fail-Safe Sleep
             if not response_text or response_text.startswith("ERROR_CODE_"):
                 wait = 60
-                logger.warning(f"⚠️ All Engines failed. Sleeping {wait}s for refill...")
+                logger.warning(f"⚠️ All Engines failed or exhausted. Sleeping {wait}s for refill...")
                 time.sleep(wait)
                 attempts += 1
                 continue
 
+        # --- VALIDATION BLOCK ---
         if validator(response_text):
             if is_cloud:
                 time.sleep(5)
