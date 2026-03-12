@@ -52,26 +52,32 @@ class ApplyXMLMixin:
     ) -> tuple[str, str, bool]:
         source_code = source_code.replace("\r\n", "\n")
         llm_response = llm_response.replace("\r\n", "\n")
-        
+
         explanation = self._extract_explanation(llm_response)
         matches = self._extract_edit_blocks(llm_response)
-        
+
         if not matches:
             return source_code, explanation, True
-            
+
         new_code = source_code
         all_edits_succeeded = True
-        
+
         for m in matches:
-            raw_search = re.sub(r"^```[\w]*\n|\n```$", "", m.group(1), flags=re.MULTILINE)
-            raw_replace = re.sub(r"^```[\w]*\n|\n```$", "", m.group(2), flags=re.MULTILINE)
-            
+            raw_search = re.sub(
+                r"^```[\w]*\n|\n```$", "", m.group(1), flags=re.MULTILINE
+            )
+            raw_replace = re.sub(
+                r"^```[\w]*\n|\n```$", "", m.group(2), flags=re.MULTILINE
+            )
+
             raw_replace = self._fix_replace_indentation(raw_search, raw_replace)
-            
-            new_code, success = self._apply_single_block(new_code, raw_search, raw_replace)
+
+            new_code, success = self._apply_single_block(
+                new_code, raw_search, raw_replace
+            )
             if not success:
                 all_edits_succeeded = False
-                
+
         return new_code, explanation, all_edits_succeeded
 
     # ==========================================
@@ -82,7 +88,11 @@ class ApplyXMLMixin:
         thought_match = re.search(
             r"<THOUGHT>(.*?)</THOUGHT>", llm_response, re.DOTALL | re.IGNORECASE
         )
-        return thought_match.group(1).strip() if thought_match else "No explanation provided."
+        return (
+            thought_match.group(1).strip()
+            if thought_match
+            else "No explanation provided."
+        )
 
     def _extract_edit_blocks(self, llm_response: str) -> list[re.Match]:
         pattern = re.compile(
@@ -94,19 +104,19 @@ class ApplyXMLMixin:
     def _fix_replace_indentation(self, search: str, replace: str) -> str:
         search_lines = search.split("\n")
         replace_lines = replace.split("\n")
-        
+
         search_indent = ""
         for line in search_lines:
             if line.strip():
                 search_indent = line[: len(line) - len(line.lstrip(" \t"))]
                 break
-                
+
         replace_base_indent = ""
         for line in replace_lines:
             if line.strip():
                 replace_base_indent = line[: len(line) - len(line.lstrip(" \t"))]
                 break
-                
+
         fixed_replace_lines = []
         for line in replace_lines:
             if line.strip():
@@ -119,36 +129,40 @@ class ApplyXMLMixin:
                 fixed_replace_lines.append("")
         return "\n".join(fixed_replace_lines)
 
-    def _apply_single_block(self, source: str, search: str, replace: str) -> tuple[str, bool]:
+    def _apply_single_block(
+        self, source: str, search: str, replace: str
+    ) -> tuple[str, bool]:
         # Strategy 1: Exact Match
         if search in source:
             return source.replace(search, replace, 1), True
-            
+
         clean_search = search.strip("\n")
         clean_replace = replace.strip("\n")
-        
+
         # Strategy 2: Clean Exact Match
         if clean_search and clean_search in source:
             return source.replace(clean_search, clean_replace, 1), True
-            
+
         # Strategy 3: Normalized Match
         source, success = self._attempt_normalized_match(source, search, replace)
         if success:
             return source, True
-        
+
         # Strategy 4: Regex Fuzzy Match
         source, success = self._attempt_regex_fuzzy_match(source, clean_search, replace)
         if success:
             return source, True
-        
+
         # Strategy 5: Line-by-Line Robust Match
         source, success = self._attempt_line_by_line_match(source, search, replace)
         if success:
             return source, True
-        
+
         return source, False
 
-    def _attempt_normalized_match(self, source: str, search: str, replace: str) -> tuple[str, bool]:
+    def _attempt_normalized_match(
+        self, source: str, search: str, replace: str
+    ) -> tuple[str, bool]:
         def normalize(t: str) -> str:
             t = re.sub(r"#.*", "", t)
             return re.sub(r"\s+", " ", t).strip()
@@ -156,7 +170,7 @@ class ApplyXMLMixin:
         norm_search = normalize(search)
         if not norm_search:
             return source, False
-            
+
         search_lines = search.split("\n")
         lines = source.splitlines()
         for i in range(len(lines)):
@@ -167,18 +181,23 @@ class ApplyXMLMixin:
                 return "\n".join(lines), True
         return source, False
 
-    def _attempt_regex_fuzzy_match(self, source: str, clean_search: str, replace: str) -> tuple[str, bool]:
+    def _attempt_regex_fuzzy_match(
+        self, source: str, clean_search: str, replace: str
+    ) -> tuple[str, bool]:
         try:
             search_lines_cleaned = [
                 line.strip() for line in clean_search.split("\n") if line.strip()
             ]
             if not search_lines_cleaned:
                 return source, False
-                
+
             regex_parts = [
-                r"^[ \t]*" + re.escape(line) + r"[ \t]*\n+" for line in search_lines_cleaned[:-1]
+                r"^[ \t]*" + re.escape(line) + r"[ \t]*\n+"
+                for line in search_lines_cleaned[:-1]
             ]
-            regex_parts.append(r"^[ \t]*" + re.escape(search_lines_cleaned[-1]) + r"[ \t]*\n?")
+            regex_parts.append(
+                r"^[ \t]*" + re.escape(search_lines_cleaned[-1]) + r"[ \t]*\n?"
+            )
             pattern_str = r"".join(regex_parts)
             fuzzy_match = re.search(pattern_str, source, re.MULTILINE)
             if fuzzy_match:
@@ -193,12 +212,14 @@ class ApplyXMLMixin:
             pass
         return source, False
 
-    def _attempt_line_by_line_match(self, source: str, search: str, replace: str) -> tuple[str, bool]:
+    def _attempt_line_by_line_match(
+        self, source: str, search: str, replace: str
+    ) -> tuple[str, bool]:
         search_lines = search.split("\n")
         search_lines_stripped = [line.strip() for line in search_lines if line.strip()]
         if not search_lines_stripped:
             return source, False
-            
+
         replace_lines = replace.split("\n")
         code_lines = source.splitlines()
         for i in range(len(code_lines) - len(search_lines_stripped) + 1):
