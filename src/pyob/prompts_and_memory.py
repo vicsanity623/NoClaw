@@ -65,7 +65,7 @@ class PromptsAndMemoryMixin:
         if os.path.exists(analysis_path):
             with open(analysis_path, "r", encoding="utf-8") as f:
                 content = f.read()
-                header_parts = content.split("## 📂 File Directory")
+                header_parts = content.split("## File Directory")
                 header = header_parts[0].strip() if header_parts else ""
                 context += f"### Project Goal:\n{header}\n\n"
 
@@ -94,7 +94,7 @@ class PromptsAndMemoryMixin:
         session_context: list[str] = getattr(self, "session_context", [])
         if not session_context:
             return
-        logger.info("\n💾 PHASE 5: Updating MEMORY.md with session context...")
+        logger.info("\nPHASE 5: Updating MEMORY.md with session context...")
         session_summary = "\n".join(f"- {item}" for item in session_context)
         prompt = self.load_prompt(
             "UM.md",
@@ -120,7 +120,7 @@ class PromptsAndMemoryMixin:
     def refactor_memory(self) -> None:
         if not self.memory:
             return
-        logger.info("\n🧹 PHASE 6: Cleanup! Summarizing and refactoring MEMORY.md...")
+        logger.info("\nPHASE 6: Cleanup! Summarizing and refactoring MEMORY.md...")
         prompt = self.load_prompt("RM.md", current_memory=self.memory)
 
         def validator(text: str) -> bool:
