@@ -23,11 +23,11 @@ def load_config():
                 return json.load(f)
         except (json.JSONDecodeError, OSError) as e:
             print(
-                f"⚠️ Warning: Configuration file {CONFIG_FILE} is invalid or inaccessible ({e}). Re-creating."
+                f"Warning: Configuration file {CONFIG_FILE} is invalid or inaccessible ({e}). Re-creating."
             )
         except Exception as e:
             print(
-                f"⚠️ Warning: An unexpected error occurred while loading config ({e}). Re-creating."
+                f"Warning: An unexpected error occurred while loading config ({e}). Re-creating."
             )
 
     # 2. Check for Environment Variables (Ensures it works in GitHub Actions/Docker)
@@ -41,19 +41,19 @@ def load_config():
 
     # 3. Safety Check for Headless Environments
     if not sys.stdin.isatty():
-        print("❌ Error: No API keys found in environment and stdin is not a TTY.")
+        print("Error: No API keys found in environment and stdin is not a TTY.")
         print("   In GitHub Actions, please set the PYOB_GEMINI_KEYS secret.")
         sys.exit(1)
 
     # 4. Standard Interactive Setup (reached on local iMac first-run)
-    print("🛠️  PYOB First-Time Setup")
+    print("PYOB First-Time Setup")
     print("═" * 40)
-    print("\n🔑 Step 1: Gemini API Keys")
+    print("\nStep 1: Gemini API Keys")
     print("Enter up to 10 keys separated by commas:")
     keys = input("Keys: ").strip()
 
-    print("\n🤖 Step 2: Model Configuration")
-    print("⚠️  WARNING: PYOB is optimized for 'gemini-2.0-flash' and 'qwen3-coder:30b'.")
+    print("\nStep 2: Model Configuration")
+    print("WARNING: PYOB is optimized for 'gemini-2.0-flash' and 'qwen3-coder:30b'.")
     print("   Changing these may result in parsing errors or logic loops.")
 
     g_model = (
@@ -70,7 +70,7 @@ def load_config():
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, indent=4)
 
-    print(f"\n✅ Configuration saved to {CONFIG_FILE}")
+    print(f"\nConfiguration saved to {CONFIG_FILE}")
     print("   (To change these later, simply delete that file and restart PYOB.)\n")
     return config
 
@@ -135,7 +135,7 @@ def main():
     target_dir = os.path.abspath(target_dir)
 
     if not os.path.isdir(target_dir):
-        print(f"❌ Error: Directory does not exist → {target_dir}")
+        print(f"Error: Directory does not exist → {target_dir}")
         if sys.stdin.isatty():
             input("\nPress Enter to exit...")
         sys.exit(1)
@@ -169,9 +169,9 @@ def main():
             )
     # ----------------------------------------
 
-    print(f"\n🚀 Starting PYOB on: {target_dir}")
-    print(f"🧠 Gemini Model: {os.environ['PYOB_GEMINI_MODEL']}")
-    print(f"🏠 Local Model:  {os.environ['PYOB_LOCAL_MODEL']}")
+    print(f"\nStarting PYOB on: {target_dir}")
+    print(f"Gemini Model: {os.environ['PYOB_GEMINI_MODEL']}")
+    print(f"Local Model:  {os.environ['PYOB_LOCAL_MODEL']}")
     print("   (Terminal will stay open — press Ctrl+C to stop)\n")
 
     try:
@@ -180,7 +180,7 @@ def main():
     except KeyboardInterrupt:
         print("\n\nPYOB stopped by user.")
     except Exception as e:
-        print(f"\n💥 Unexpected error: {e}")
+        print(f"\nUnexpected error: {e}")
         import traceback
 
         traceback.print_exc()
