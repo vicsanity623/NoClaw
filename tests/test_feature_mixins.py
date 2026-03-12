@@ -39,7 +39,7 @@ def test_write_pr_creates_and_formats_file(tmp_path):
         content = f.read()
 
         # Check that the file contains the right markdown headers and our fake data
-        assert "🚀 Autonomous Code Review" in content
+        assert "Autonomous Code Review" in content
         assert "Fixed a missing import." in content
         assert "```xml" in content
         assert "<SEARCH>" in content

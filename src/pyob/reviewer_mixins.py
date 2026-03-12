@@ -17,7 +17,7 @@ class ValidationMixin:
     memory: str
 
     def run_linter_fix_loop(self, context_of_change: str = "") -> bool:
-        logger.info("\n🧹 Validating codebase syntax (Python, JS, CSS)...")
+        logger.info("\nValidating codebase syntax (Python, JS, CSS)...")
         success: bool = True
         try:
             subprocess.run(["ruff", "format", self.target_dir], capture_output=True)
@@ -30,7 +30,7 @@ class ValidationMixin:
                 ["ruff", "check", self.target_dir], capture_output=True, text=True
             )
             if res.returncode != 0:
-                logger.warning(f"⚠️ Ruff found logic errors:\n{res.stdout.strip()}")
+                logger.warning(f"Ruff found logic errors:\n{res.stdout.strip()}")
                 py_fixed = False
                 for attempt in range(3):
                     file_errors: dict[str, list[str]] = {}
@@ -51,11 +51,11 @@ class ValidationMixin:
                         text=True,
                     )
                     if recheck.returncode == 0:
-                        logger.info("✅ Python Auto-fix successful!")
+                        logger.info("Python Auto-fix successful!")
                         py_fixed = True
                         break
                 if not py_fixed:
-                    logger.error("❌ Python errors remain unfixable.")
+                    logger.error("Python errors remain unfixable.")
                     success = False
         except FileNotFoundError:
             pass
@@ -73,7 +73,7 @@ class ValidationMixin:
                 if res.returncode != 0:
                     rel_name = os.path.basename(js_file)
                     err_msg = res.stderr.strip()
-                    logger.warning(f"⚠️ JS Syntax Error in {rel_name}:\n{err_msg}")
+                    logger.warning(f"JS Syntax Error in {rel_name}:\n{err_msg}")
                     js_fixed = False
                     for attempt in range(3):
                         logger.info(
@@ -84,11 +84,11 @@ class ValidationMixin:
                             ["node", "--check", js_file], capture_output=True, text=True
                         )
                         if recheck.returncode == 0:
-                            logger.info(f"✅ JS Auto-fix successful for {rel_name}!")
+                            logger.info(f"JS Auto-fix successful for {rel_name}!")
                             js_fixed = True
                             break
                     if not js_fixed:
-                        logger.error(f"❌ JS syntax in {rel_name} remains broken.")
+                        logger.error(f"JS syntax in {rel_name} remains broken.")
                         success = False
                         break
         except FileNotFoundError:
@@ -103,7 +103,7 @@ class ValidationMixin:
                             css_content = f.read()
                         if css_content.count("{") != css_content.count("}"):
                             logger.error(
-                                f"❌ CSS Syntax Error in {file}: Unbalanced braces."
+                                f"CSS Syntax Error in {file}: Unbalanced braces."
                             )
                             success = False
                     except Exception:
@@ -142,7 +142,7 @@ class ValidationMixin:
 
     def run_and_verify_app(self, context_of_change: str = "") -> bool:
         # 1. MANDATORY VALIDATION GATE: Fix formatting, THEN validate
-        logger.info("🧪 PHASE 3.5: Running full validation suite (./check.sh --fix)...")
+        logger.info("PHASE 3.5: Running full validation suite (./check.sh --fix)...")
 
         # This will auto-fix trailing whitespaces and formatting errors
         subprocess.run(["./check.sh", "--fix"], capture_output=True, text=True)
@@ -152,7 +152,7 @@ class ValidationMixin:
 
         if res.returncode != 0:
             logger.warning(
-                f"⚠️ Validation suite failed after auto-fix!\n{res.stdout.strip()}"
+                f"Validation suite failed after auto-fix!\n{res.stdout.strip()}"
             )
             # Feed the remaining errors back to the AI
             self._fix_runtime_errors(
@@ -173,7 +173,7 @@ class ValidationMixin:
 
         for attempt in range(3):
             logger.info(
-                f"\n🚀 PHASE 4: Runtime Verification. Launching {os.path.basename(entry_file)} (Attempt {attempt + 1}/3)..."
+                f"\nPHASE 4: Runtime Verification. Launching {os.path.basename(entry_file)} (Attempt {attempt + 1}/3)..."
             )
             process = subprocess.Popen(
                 [python_cmd, entry_file],
@@ -205,15 +205,15 @@ class ValidationMixin:
             )
 
             if not has_crash:
-                logger.info("✅ App ran successfully for 10 seconds.")
+                logger.info("App ran successfully for 10 seconds.")
                 return True
 
-            logger.warning(f"⚠️ App crashed!\n{stderr}")
+            logger.warning(f"App crashed!\n{stderr}")
             self._fix_runtime_errors(
                 stderr + "\n" + stdout, entry_file, context_of_change
             )
 
-        logger.error("❌ Exhausted runtime auto-fix attempts.")
+        logger.error("Exhausted runtime auto-fix attempts.")
         return False
 
     def _fix_runtime_errors(
@@ -227,7 +227,7 @@ class ValidationMixin:
         if package_match:
             pkg = package_match.group(1)
             logger.info(
-                f"📦 Auto-detected missing dependency: {pkg}. Attempting pip install..."
+                f"Auto-detected missing dependency: {pkg}. Attempting pip install..."
             )
             venv_python = os.path.join(self.target_dir, "build_env", "bin", "python3")
             if not os.path.exists(venv_python):
@@ -265,7 +265,7 @@ class ValidationMixin:
                     capture_output=True,
                 )
                 logger.info(
-                    f"✅ Successfully installed {pkg}. System will now retry launch."
+                    f"Successfully installed {pkg}. System will now retry launch."
                 )
 
                 # --- AUTO-DEPENDENCY LOCKING ---
@@ -278,14 +278,14 @@ class ValidationMixin:
                         shell=True,
                         check=True,
                     )
-                    logger.info("🔒 Auto-locked dependencies in requirements.txt")
+                    logger.info("Auto-locked dependencies in requirements.txt")
                 except Exception as e:
-                    logger.warning(f"⚠️ Failed to lock dependencies: {e}")
+                    logger.warning(f"Failed to lock dependencies: {e}")
                 # -------------------------------
 
                 return
             except subprocess.CalledProcessError as e:
-                logger.error(f"❌ Failed to install {pkg} automatically: {e}")
+                logger.error(f"Failed to install {pkg} automatically: {e}")
 
         tb_files = re.findall(r'File "([^"]+)"', logs)
         target_file = entry_file
@@ -332,7 +332,7 @@ class ValidationMixin:
         if new_code != code:
             with open(target_file, "w", encoding="utf-8") as f_out:
                 f_out.write(new_code)
-            logger.info(f"✅ AI Auto-patched runtime crash in `{rel_path}`")
+            logger.info(f"AI Auto-patched runtime crash in `{rel_path}`")
             self.session_context.append(
                 f"Auto-fixed runtime crash in `{rel_path}`: {explanation}"
             )
@@ -340,7 +340,7 @@ class ValidationMixin:
 
     def check_downstream_breakages(self, target_path: str, rel_path: str) -> bool:
         logger.info(
-            f"\n🔍 PHASE 3: Simulating workspace to check for downstream breakages caused by {rel_path} edits..."
+            f"\nPHASE 3: Simulating workspace to check for downstream breakages caused by {rel_path} edits..."
         )
         try:
             excludes = (
@@ -362,10 +362,10 @@ class ValidationMixin:
             )
             if "error:" in result.stdout:
                 logger.warning(
-                    f"⚠️ Downstream Breakage Detected!\n{result.stdout.strip()}"
+                    f"Downstream Breakage Detected!\n{result.stdout.strip()}"
                 )
                 return self.propose_cascade_fix(result.stdout.strip(), rel_path)
-            logger.info("✅ No downstream breakages detected.")
+            logger.info("No downstream breakages detected.")
             return True
         except Exception as e:
             logger.error(f"Error during Phase 3 assessment: {e}")
@@ -407,7 +407,7 @@ class ValidationMixin:
             with open(problem_file, "w", encoding="utf-8") as f:
                 f.write(new_code)
             logger.info(
-                f"✅ Auto-patched cascading fix directly into `{os.path.basename(problem_file)}`"
+                f"Auto-patched cascading fix directly into `{os.path.basename(problem_file)}`"
             )
             self.session_context.append(
                 f"Auto-applied downstream cascade fix in `{os.path.basename(problem_file)}`"
@@ -417,5 +417,5 @@ class ValidationMixin:
                 ["mypy", problem_file, "--ignore-missing-imports"], capture_output=True
             )
             return final_check.returncode == 0
-        logger.error(f"❌ Failed to auto-patch `{rel_broken_path}`.")
+        logger.error(f"Failed to auto-patch `{rel_broken_path}`.")
         return False

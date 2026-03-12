@@ -160,9 +160,9 @@ class EntranceMixin:
         threading.Thread(target=run_server, daemon=True).start()
 
         print("\n" + "=" * 60)
-        print("⚡ PyOuroBoros (PyOB) OBSERVER IS LIVE")
-        print("🔗 URL: http://localhost:5000")
-        print(f"📂 FILE: {obs_path}")
+        print("PyOuroBoros (PyOB) OBSERVER IS LIVE")
+        print("URL: http://localhost:5000")
+        print(f"FILE: {obs_path}")
         print("=" * 60 + "\n")
 
     def execute_targeted_iteration(self: Any, iteration: int):
@@ -172,7 +172,7 @@ class EntranceMixin:
             target_rel_path = self.cascade_queue.pop(0)
             target_diff = self.cascade_diffs.get(target_rel_path, "")
             logger.warning(
-                f"🔗 SYMBOLIC CASCADE: Targeting impacted file: {target_rel_path}"
+                f"SYMBOLIC CASCADE: Targeting impacted file: {target_rel_path}"
             )
             is_cascade = True
         else:
@@ -193,7 +193,7 @@ class EntranceMixin:
             try:
                 pod_path.mkdir(parents=True, exist_ok=True)
                 logger.warning(
-                    f"🛡️ SELF-EVOLUTION: Sheltering engine source EXTERNALLY in {pod_path}"
+                    f"SELF-EVOLUTION: Sheltering engine source EXTERNALLY in {pod_path}"
                 )
                 for f_name in self.ENGINE_FILES:
                     src = os.path.join(self.target_dir, "src", "pyob", f_name)
@@ -224,13 +224,13 @@ class EntranceMixin:
             with open(target_abs_path, "r", encoding="utf-8", errors="ignore") as f:
                 new_content = f.read()
 
-        logger.info(f"🔄 Refreshing metadata for `{target_rel_path}`...")
+        logger.info(f"Refreshing metadata for `{target_rel_path}`...")
         self.update_analysis_for_single_file(target_abs_path, target_rel_path)
         self.update_ledger_for_file(target_rel_path, new_content)
 
         if old_content != new_content:
             logger.info(
-                f"📝 Edit successful. Checking ripples and running final verification for {target_rel_path}..."
+                f"Edit successful. Checking ripples and running final verification for {target_rel_path}..."
             )
             self.append_to_history(target_rel_path, old_content, new_content)
 
@@ -246,7 +246,7 @@ class EntranceMixin:
             )
             if ripples:
                 logger.warning(
-                    f"⚠️ CROSS-FILE DEPTH TRIGGERED! Queuing {len(ripples)} files."
+                    f"CROSS-FILE DEPTH TRIGGERED! Queuing {len(ripples)} files."
                 )
                 for r in ripples:
                     if r not in self.cascade_queue:
@@ -256,15 +256,15 @@ class EntranceMixin:
             logger.info("\n" + "=" * 20 + " FINAL VERIFICATION " + "=" * 20)
             if not self._run_final_verification_and_heal(backup_state):
                 logger.error(
-                    "🔴 Final verification failed and could not be auto-repaired. Iteration changes have been rolled back."
+                    "Final verification failed and could not be auto-repaired. Iteration changes have been rolled back."
                 )
             else:
-                logger.info("✅ Final verification successful. Application is stable.")
+                logger.info("Final verification successful. Application is stable.")
                 self.handle_git_librarian(target_rel_path, iteration)
 
                 if is_engine_file:
                     logger.warning(
-                        f"🚀 SELF-EVOLUTION: `{target_rel_path}` was successfully updated."
+                        f"SELF-EVOLUTION: `{target_rel_path}` was successfully updated."
                     )
                     self.self_evolved_flag = True
 

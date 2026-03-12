@@ -170,7 +170,7 @@ class AutoReviewer(
         else:
             display_name = "System Update"
         print("\n" + "=" * 50)
-        print(f"💡 AI Generation Prompt Ready: [{display_name}]")
+        print(f"AI Generation Prompt Ready: [{display_name}]")
         print("=" * 50)
         print(
             f"The AI has prepared a prompt for code generation/review of: {display_name}"
@@ -216,7 +216,7 @@ class AutoReviewer(
                 if is_cloud:
                     # Check if we've been stuck for a while
                     logger.warning(
-                        "☁️ Cloud environment: Keys exhausted. Checking if cooldowns can be cleared..."
+                        " Cloud environment: Keys exhausted. Checking if cooldowns can be cleared..."
                     )
 
                     # FORCE RESET: If we are in the cloud and all keys are dead,
@@ -231,7 +231,7 @@ class AutoReviewer(
                 else:
                     if not use_ollama:
                         logger.warning(
-                            "🚫 Gemini rate-limited. Falling back to Local Ollama."
+                            "Gemini rate-limited. Falling back to Local Ollama."
                         )
                         use_ollama = True
             else:
@@ -249,23 +249,21 @@ class AutoReviewer(
             )
 
             if "ERROR_CODE_413" in response_text:
-                logger.warning(
-                    "⚠️ GitHub Models context too large (413). Sleeping 60s..."
-                )
+                logger.warning("GitHub Models context too large (413). Sleeping 60s...")
                 time.sleep(60)
                 attempts += 1
                 continue
 
             if response_text.startswith("ERROR_CODE_429"):
                 if key:
-                    logger.warning("⚠️ Key hit a 429 rate limit. Timeout 2m.")
+                    logger.warning(" Key hit a 429 rate limit. Timeout 2m.")
                     self.key_cooldowns[key] = time.time() + 120
                 time.sleep(60)
                 attempts += 1
                 continue
 
             if response_text.startswith("ERROR_CODE_") or not response_text.strip():
-                logger.warning("⚠️ API Error or Empty Response. Backing off 60s...")
+                logger.warning("API Error or Empty Response. Backing off 60s...")
                 time.sleep(60)
                 attempts += 1
                 continue
@@ -284,13 +282,13 @@ class AutoReviewer(
             if not require_edit and ai_approved_code:
                 if edit_count > 0:
                     logger.info(
-                        "🤖 AI stated the code looks good, but hallucinated empty <EDIT> blocks. Ignoring them."
+                        "AI stated the code looks good, but hallucinated empty <EDIT> blocks. Ignoring them."
                     )
                 return source_code, explanation, response_text
 
             if edit_count > 0 and not edit_success:
                 logger.warning(
-                    f"⚠️ Partial edit failure in {display_name}. Auto-regenerating..."
+                    f"Partial edit failure in {display_name}. Auto-regenerating..."
                 )
                 time.sleep(30)
                 attempts += 1
@@ -306,14 +304,14 @@ class AutoReviewer(
                 if ai_approved_code:
                     return new_code, explanation, response_text
                 else:
-                    logger.warning("⚠️ AI provided no edit and no approval. Rotating...")
+                    logger.warning(" AI provided no edit and no approval. Rotating...")
                     time.sleep(30)
                     attempts += 1
                     continue
 
             if new_code != source_code:
                 print("\n" + "=" * 50)
-                print(f"💡 AI Proposed Edit Ready for: [{display_name}]")
+                print(f"AI Proposed Edit Ready for: [{display_name}]")
                 print("=" * 50)
                 diff_lines = list(
                     difflib.unified_diff(
@@ -390,7 +388,7 @@ class AutoReviewer(
             if os.path.exists(self.pr_file) or os.path.exists(self.feature_file):
                 logger.info("==================================================")
                 logger.info(
-                    f"⏸️ Found pending {PR_FILE_NAME} and/or {FEATURE_FILE_NAME} from a previous run."
+                    f"Found pending {PR_FILE_NAME} and/or {FEATURE_FILE_NAME} from a previous run."
                 )
                 user_input = self.get_user_approval(
                     "Hit ENTER to PROCEED, type 'SKIP' to ignore, or 'DELETE' to discard",
@@ -409,13 +407,13 @@ class AutoReviewer(
                                 success = False
                     if not success:
                         self.restore_workspace(backup_state)
-                        logger.warning("🔄 Rollback performed due to unfixable errors.")
+                        logger.warning("Rollback performed due to unfixable errors.")
                         self.session_context.append(
                             "CRITICAL: The last refactor/feature attempt FAILED and was ROLLED BACK. "
                             "The files on disk have NOT changed. Check FAILED_FEATURE.md for error logs."
                         )
 
-                        failure_report = f"\n\n### ❌ FAILURE ATTEMPT LOGS ({time.strftime('%Y-%m-%d %H:%M:%S')})\n"
+                        failure_report = f"\n\n### FAILURE ATTEMPT LOGS ({time.strftime('%Y-%m-%d %H:%M:%S')})\n"
                         failure_report += "\n".join(self.session_context[-3:])
 
                         if os.path.exists(self.pr_file):
@@ -441,7 +439,7 @@ class AutoReviewer(
                     )
             if not changes_made:
                 logger.info("==================================================")
-                logger.info("🚀 PHASE 1: Initial Assessment & Codebase Scan")
+                logger.info("PHASE 1: Initial Assessment & Codebase Scan")
                 logger.info("==================================================")
                 if self.manual_target_file:
                     if os.path.exists(self.manual_target_file):
@@ -462,19 +460,19 @@ class AutoReviewer(
                 for idx, filepath in enumerate(all_files, start=1):
                     self.analyze_file(filepath, idx, len(all_files))
                 logger.info("==================================================")
-                logger.info("✅ Phase 1 Complete.")
+                logger.info(" Phase 1 Complete.")
                 logger.info("==================================================")
                 if os.path.exists(self.pr_file):
                     logger.info(
-                        "⏸️ Skipping Phase 2 (Feature Proposal) because Phase 1 found bugs."
+                        "Skipping Phase 2 (Feature Proposal) because Phase 1 found bugs."
                     )
                     logger.info("Applying fixes first to prevent code collisions...")
                 elif all_files:
-                    logger.info("🚀 Moving to Phase 2: Generating Feature Proposal...")
+                    logger.info("Moving to Phase 2: Generating Feature Proposal...")
                     self.propose_feature(random.choice(all_files))
                 if os.path.exists(self.pr_file) or os.path.exists(self.feature_file):
                     print("\n" + "=" * 50)
-                    print("⏸️ ACTION REQUIRED: Proposals Generated")
+                    print(" ACTION REQUIRED: Proposals Generated")
                     user_input = self.get_user_approval(
                         "Hit ENTER to PROCEED, or type 'SKIP' to cancel", timeout=220
                     )
@@ -492,10 +490,10 @@ class AutoReviewer(
                         if not success:
                             self.restore_workspace(backup_state)
                             logger.warning(
-                                "🔄 Rollback performed due to unfixable errors."
+                                " Rollback performed due to unfixable errors."
                             )
 
-                            failure_report = f"\n\n### ❌ FAILURE ATTEMPT LOGS ({time.strftime('%Y-%m-%d %H:%M:%S')})\n"
+                            failure_report = f"\n\n###  FAILURE ATTEMPT LOGS ({time.strftime('%Y-%m-%d %H:%M:%S')})\n"
                             failure_report += "\n".join(self.session_context[-3:])
 
                             if os.path.exists(self.pr_file):
@@ -514,7 +512,7 @@ class AutoReviewer(
                             "Changes not applied manually. They will remain for the next loop iteration."
                         )
                 else:
-                    logger.info("\n🎉 No issues found, no features proposed.")
+                    logger.info("\nNo issues found, no features proposed.")
         finally:
             self.update_memory()
             if current_iteration % 2 == 0:

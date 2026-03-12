@@ -171,7 +171,7 @@ class CoreUtilsMixin:
             or os.environ.get("CI") == "true"
             or "GITHUB_RUN_ID" in os.environ
         ):
-            logger.info("🤖 Headless environment detected: Auto-approving action.")
+            logger.info(" Headless environment detected: Auto-approving action.")
             return "PROCEED"
         print(f"\n{prompt_text}")
         start_time = time.time()
@@ -184,7 +184,7 @@ class CoreUtilsMixin:
                 if remaining <= 0:
                     return "PROCEED"
                 sys.stdout.write(
-                    f"\r⏳ {remaining}s remaining | You: {input_str} \b\b\b\b"
+                    f"\r {remaining}s remaining | You: {input_str} \b\b\b\b"
                 )
                 sys.stdout.flush()
                 if msvcrt.kbhit():
@@ -208,7 +208,7 @@ class CoreUtilsMixin:
                     if remaining <= 0:
                         return "PROCEED"
                     sys.stdout.write(
-                        f"\r⏳ {remaining}s remaining | You: {input_str}\033[K"
+                        f"\r {remaining}s remaining | You: {input_str}\033[K"
                     )
                     sys.stdout.flush()
                     i, o, e = select.select([sys.stdin], [], [], 0.1)
@@ -246,11 +246,11 @@ class CoreUtilsMixin:
                 edited_content = f.read()
             return edited_content
         except FileNotFoundError:
-            logger.error(f"❌ Editor '{editor}' not found. Using original content.")
+            logger.error(f"Editor '{editor}' not found. Using original content.")
             return initial_content
         except subprocess.CalledProcessError:
             logger.error(
-                f"❌ Editor '{editor}' exited with an error. Using original content."
+                f"Editor '{editor}' exited with an error. Using original content."
             )
             return initial_content
         finally:
@@ -275,11 +275,11 @@ class CoreUtilsMixin:
                 edited_prompt = f.read()
             return edited_prompt
         except FileNotFoundError:
-            logger.error(f"❌ Editor '{editor}' not found. Using original prompt.")
+            logger.error(f"Editor '{editor}' not found. Using original prompt.")
             return initial_prompt
         except subprocess.CalledProcessError:
             logger.error(
-                f"❌ Editor '{editor}' exited with an error. Using original prompt."
+                f"Editor '{editor}' exited with an error. Using original prompt."
             )
             return initial_prompt
         finally:
@@ -310,7 +310,7 @@ class CoreUtilsMixin:
                     f.write(content)
             except Exception as e:
                 logger.error(f"Failed to restore {path}: {e}")
-        logger.warning("🔄 Workspace restored to safety due to unfixable AI errors.")
+        logger.warning("Workspace restored to safety due to unfixable AI errors.")
 
     def load_memory(self) -> str:
         if os.path.exists(self.memory_file):
@@ -473,7 +473,7 @@ class CoreUtilsMixin:
                             new_code = "\n".join(lines)
                             block_applied = True
                             logger.info(
-                                f"✅ Normalization match succeeded at line {i + 1}."
+                                f"Normalization match succeeded at line {i + 1}."
                             )
                             break
             if not block_applied:
@@ -530,7 +530,7 @@ class CoreUtilsMixin:
                                 new_code += "\n"
                             block_applied = True
                             logger.info(
-                                f"✅ Robust fuzzy match succeeded at line {i + 1}."
+                                f"Robust fuzzy match succeeded at line {i + 1}."
                             )
                             break
             if not block_applied:
