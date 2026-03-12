@@ -32,6 +32,7 @@ class EntranceController(EntranceMixin):
         "pyob_dashboard.py",
         "pyob-launcher.py",
         "reviewer_mixins.py",
+        "scanner_mixins.py",
     ]
 
     def __init__(self, target_dir: str):
