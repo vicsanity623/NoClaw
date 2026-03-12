@@ -1,7 +1,5 @@
-import ast
 import logging
 import os
-import re
 import select
 import shutil
 import subprocess
@@ -92,6 +90,12 @@ IGNORE_FILES = {
     "README.md",
     "DOCUMENTATION.md",
     "observer.html",
+    "dashboard_html.py",
+    "feature_mixins.py",
+    "entrance_mixins.py",
+    "scanner_mixins.py",
+    "get_valid_edit.py",
+    "apply_xml_mixins.py",  # ADDED
 }
 SUPPORTED_EXTENSIONS = {".py", ".js", ".ts", ".html", ".css", ".json", ".sh"}
 
@@ -350,192 +354,6 @@ class CoreUtilsMixin:
         finally:
             if os.path.exists(tmp_file_path):
                 os.remove(tmp_file_path)
-
-    def ensure_imports_retained(
-        self, orig_code: str, new_code: str, filepath: str
-    ) -> str:
-        try:
-            orig_tree = ast.parse(orig_code)
-            new_tree = ast.parse(new_code)
-        except Exception:
-            return new_code
-        orig_imports = []
-        for node in orig_tree.body:
-            if isinstance(node, (ast.Import, ast.ImportFrom)):
-                start_line = node.lineno - 1
-                end_line = getattr(node, "end_lineno", node.lineno)
-                import_text = "\n".join(orig_code.splitlines()[start_line:end_line])
-                orig_imports.append((node, import_text))
-        missing_imports = []
-        for orig_node, import_text in orig_imports:
-            found = False
-            for new_node in new_tree.body:
-                if isinstance(new_node, type(orig_node)):
-                    if isinstance(orig_node, ast.Import) and isinstance(
-                        new_node, ast.Import
-                    ):
-                        if {alias.name for alias in orig_node.names}.issubset(
-                            {alias.name for alias in new_node.names}
-                        ):
-                            found = True
-                            break
-                    elif isinstance(orig_node, ast.ImportFrom) and isinstance(
-                        new_node, ast.ImportFrom
-                    ):
-                        if orig_node.module == new_node.module and {
-                            alias.name for alias in orig_node.names
-                        }.issubset({alias.name for alias in new_node.names}):
-                            found = True
-                            break
-            if not found:
-                missing_imports.append(import_text)
-        if missing_imports:
-            return "\n".join(missing_imports) + "\n\n" + new_code
-        return new_code
-
-    def apply_xml_edits(
-        self, source_code: str, llm_response: str
-    ) -> tuple[str, str, bool]:
-        source_code = source_code.replace("\r\n", "\n")
-        llm_response = llm_response.replace("\r\n", "\n")
-        thought_match = re.search(
-            r"<THOUGHT>(.*?)</THOUGHT>", llm_response, re.DOTALL | re.IGNORECASE
-        )
-        explanation = (
-            thought_match.group(1).strip()
-            if thought_match
-            else "No explanation provided."
-        )
-        new_code = source_code
-        pattern = re.compile(
-            r"<EDIT>\s*<SEARCH>\s*\n?(.*?)\n?\s*</SEARCH>\s*<REPLACE>\s*\n?(.*?)\n?\s*</REPLACE>\s*</EDIT>",
-            re.DOTALL | re.IGNORECASE,
-        )
-        matches = list(pattern.finditer(llm_response))
-        if not matches:
-            return new_code, explanation, True
-        all_edits_succeeded = True
-        for m in matches:
-            raw_search = re.sub(
-                r"^```[\w]*\n|\n```$", "", m.group(1), flags=re.MULTILINE
-            )
-            raw_replace = re.sub(
-                r"^```[\w]*\n|\n```$", "", m.group(2), flags=re.MULTILINE
-            )
-            search_lines = raw_search.split("\n")
-            replace_lines = raw_replace.split("\n")
-            search_indent = ""
-            for line in search_lines:
-                if line.strip():
-                    search_indent = line[: len(line) - len(line.lstrip(" \t"))]
-                    break
-            replace_base_indent = ""
-            for line in replace_lines:
-                if line.strip():
-                    replace_base_indent = line[: len(line) - len(line.lstrip(" \t"))]
-                    break
-            fixed_replace_lines = []
-            for line in replace_lines:
-                if line.strip():
-                    if line.startswith(replace_base_indent):
-                        clean_line = line[len(replace_base_indent) :]
-                    else:
-                        clean_line = line.lstrip(" \t")
-                    fixed_replace_lines.append(search_indent + clean_line)
-                else:
-                    fixed_replace_lines.append("")
-            raw_replace = "\n".join(fixed_replace_lines)
-            block_applied = False
-            if raw_search in new_code:
-                new_code = new_code.replace(raw_search, raw_replace, 1)
-                block_applied = True
-            if not block_applied:
-                clean_search = raw_search.strip("\n")
-                clean_replace = raw_replace.strip("\n")
-                if clean_search and clean_search in new_code:
-                    new_code = new_code.replace(clean_search, clean_replace, 1)
-                    block_applied = True
-            if not block_applied:
-
-                def normalize(t):
-                    t = re.sub(r"#.*", "", t)
-                    return re.sub(r"\s+", " ", t).strip()
-
-                norm_search = normalize(raw_search)
-                if norm_search:
-                    lines = new_code.splitlines()
-                    for i in range(len(lines)):
-                        test_block = normalize(
-                            "\n".join(lines[i : i + len(search_lines)])
-                        )
-                        if norm_search in test_block:
-                            lines[i : i + len(search_lines)] = [raw_replace]
-                            new_code = "\n".join(lines)
-                            block_applied = True
-                            logger.info(
-                                f"Normalization match succeeded at line {i + 1}."
-                            )
-                            break
-            if not block_applied:
-                try:
-                    search_lines_cleaned = [
-                        line.strip()
-                        for line in clean_search.split("\n")
-                        if line.strip()
-                    ]
-                    if search_lines_cleaned:
-                        regex_parts = [
-                            r"^[ \t]*" + re.escape(line) + r"[ \t]*\n+"
-                            for line in search_lines_cleaned[:-1]
-                        ]
-                        regex_parts.append(
-                            r"^[ \t]*"
-                            + re.escape(search_lines_cleaned[-1])
-                            + r"[ \t]*\n?"
-                        )
-                        pattern_str = r"".join(regex_parts)
-                        fuzzy_match = re.search(pattern_str, new_code, re.MULTILINE)
-                        if fuzzy_match:
-                            new_code = (
-                                new_code[: fuzzy_match.start()]
-                                + raw_replace
-                                + "\n"
-                                + new_code[fuzzy_match.end() :]
-                            )
-                            block_applied = True
-                except Exception:
-                    pass
-            if not block_applied:
-                search_lines_stripped = [
-                    line.strip() for line in search_lines if line.strip()
-                ]
-                if search_lines_stripped:
-                    code_lines = new_code.splitlines()
-                    for i in range(len(code_lines) - len(search_lines_stripped) + 1):
-                        match = True
-                        for j, sline in enumerate(search_lines_stripped):
-                            if sline not in code_lines[i + j].strip():
-                                match = False
-                                break
-                        if match:
-                            new_code_lines = (
-                                code_lines[:i]
-                                + replace_lines
-                                + code_lines[i + len(search_lines) :]
-                            )
-                            new_code = "\n".join(new_code_lines)
-                            if not new_code.endswith("\n") and source_code.endswith(
-                                "\n"
-                            ):
-                                new_code += "\n"
-                            block_applied = True
-                            logger.info(
-                                f"Robust fuzzy match succeeded at line {i + 1}."
-                            )
-                            break
-            if not block_applied:
-                all_edits_succeeded = False
-        return new_code, explanation, all_edits_succeeded
 
     def _find_entry_file(self) -> str | None:
         priority_files = [
