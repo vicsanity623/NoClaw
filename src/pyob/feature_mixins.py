@@ -158,16 +158,16 @@ class FeatureOperationsMixin:
 
         with open(target_path, "r", encoding="utf-8") as f_handle:
             source_code = f_handle.read()
-            
+    
         created_files: list[str] = []
         new_file_matches = re.finditer(
             r'<CREATE_FILE path="(.*?)">(.*?)</CREATE_FILE>', feature_content, re.DOTALL
         )
-        
+    
         for file_match in new_file_matches:
             new_path_rel = file_match.group(1)
             new_code_payload = file_match.group(2).strip()
-            
+    
             # --- INTELLIGENT PATHING START ---
             # If the AI provides a naked filename, assume it belongs in the same folder as the target
             if "/" not in new_path_rel and "\\" not in new_path_rel:
@@ -180,19 +180,19 @@ class FeatureOperationsMixin:
                 try:
                     # Ensure directory exists
                     os.makedirs(os.path.dirname(new_path_abs), exist_ok=True)
-                    
+
                     logger.warning(
                         f"🏗️ ARCHITECTURAL SPLIT: Spawning new module `{os.path.basename(new_path_abs)}`"
                     )
                     with open(new_path_abs, "w", encoding="utf-8") as f_new:
                         f_new.write(new_code_payload)
-                    
+
                     # --- GIT SYNCHRONIZATION START ---
                     # Immediately stage the file so the Librarian logic includes it in the commit
                     import subprocess
                     subprocess.run(["git", "add", new_path_abs], cwd=self.target_dir)
                     # ---------------------------------
-                    
+
                     created_files.append(new_path_abs)
                 except Exception as e:
                     logger.error(f"Failed to create new module {new_path_rel}: {e}")
@@ -237,10 +237,10 @@ class FeatureOperationsMixin:
             new_code = getattr(self, "ensure_imports_retained")(
                 source_code, new_code, target_path
             )
-            
+
         with open(target_path, "w", encoding="utf-8") as f_out:
             f_out.write(new_code)
-            
+
         if lang_tag == "python":
             # Verification Step
             if not getattr(self, "run_linter_fix_loop")(
@@ -277,9 +277,7 @@ class FeatureOperationsMixin:
 
         if os.path.exists(self.feature_file):
             os.remove(self.feature_file)
-            
         return True
-
 
     def implement_pr(self, pr_content: str) -> bool:
         """
