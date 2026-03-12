@@ -10,9 +10,8 @@ import sys
 import time
 from typing import Optional
 
-from pyob.autoreviewer import AutoReviewer
-from pyob.pyob_code_parser import CodeParser
-
+from .autoreviewer import AutoReviewer
+from .pyob_code_parser import CodeParser
 from .entrance_mixins import EntranceMixin
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(message)s")
@@ -25,9 +24,12 @@ class EntranceController(EntranceMixin):
         "core_utils.py",
         "prompts_and_memory.py",
         "entrance.py",
+        "entrance_mixins.py",  # NEW
         "reviewer_mixins.py",
+        "feature_mixins.py",   # NEW
         "pyob_code_parser.py",
         "pyob_dashboard.py",
+        "dashboard_html.py",   # NEW
     ]
 
     def __init__(self, target_dir: str):
