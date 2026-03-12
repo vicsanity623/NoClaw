@@ -59,9 +59,7 @@ class FeatureOperationsMixin:
             prompt, content, require_edit=False, target_filepath=filepath
         )
         if new_code == content:
-            logger.info(
-                f"AI Analysis complete. No changes required for {filename}.\n"
-            )
+            logger.info(f"AI Analysis complete. No changes required for {filename}.\n")
             return
         if new_code != content:
             self.write_pr(filepath, explanation, llm_response)
