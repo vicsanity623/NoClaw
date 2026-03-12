@@ -133,15 +133,18 @@ class ApplyXMLMixin:
             
         # Strategy 3: Normalized Match
         source, success = self._attempt_normalized_match(source, search, replace)
-        if success: return source, True
+        if success:
+            return source, True
         
         # Strategy 4: Regex Fuzzy Match
         source, success = self._attempt_regex_fuzzy_match(source, clean_search, replace)
-        if success: return source, True
+        if success:
+            return source, True
         
         # Strategy 5: Line-by-Line Robust Match
         source, success = self._attempt_line_by_line_match(source, search, replace)
-        if success: return source, True
+        if success:
+            return source, True
         
         return source, False
 
