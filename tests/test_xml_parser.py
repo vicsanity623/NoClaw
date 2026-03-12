@@ -1,8 +1,9 @@
-from pyob.core_utils import CoreUtilsMixin
+from pyob.apply_xml_mixins import ApplyXMLMixin
 
 
 def test_apply_xml_edits_precision():
-    mixin = CoreUtilsMixin()
+    mixin = ApplyXMLMixin()
+    
     source = "def add(a, b):\n    return a + b\n"
     llm_response = """
 <THOUGHT>Fixing logic</THOUGHT>
