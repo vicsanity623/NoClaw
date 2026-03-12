@@ -70,7 +70,7 @@ class EntranceController(EntranceMixin):
         if not os.path.exists(os.path.join(self.target_dir, ".git")):
             return False
 
-        logger.info("📡 Checking for remote updates from main...")
+        logger.info("Checking for remote updates from main...")
         self._run_git_command(["git", "fetch", "origin"])
 
         result = subprocess.run(
@@ -84,22 +84,22 @@ class EntranceController(EntranceMixin):
 
         if commits_behind > 0:
             logger.warning(
-                f"🔄 Project is behind main by {commits_behind} commits. Syncing..."
+                f"Project is behind main by {commits_behind} commits. Syncing..."
             )
 
             if self._run_git_command(["git", "merge", "origin/main"]):
-                logger.info("✅ Sync complete. Local files updated.")
+                logger.info("Sync complete. Local files updated.")
                 return True
             else:
                 logger.error(
-                    "❌ Sync failed (likely a merge conflict). Manual intervention required."
+                    "Sync failed (likely a merge conflict). Manual intervention required."
                 )
 
         return False
 
     def reboot_pyob(self):
         """Verified Hot-Reboot: Checks for syntax/import errors before restarting."""
-        logger.info("🧪 PRE-FLIGHT: Verifying engine integrity before reboot...")
+        logger.info("PRE-FLIGHT: Verifying engine integrity before reboot...")
 
         # Test if the new code can actually be loaded
         test_cmd = [sys.executable, "-c", "import pyob.entrance; print('SUCCESS')"]
@@ -111,7 +111,7 @@ class EntranceController(EntranceMixin):
             result = subprocess.run(test_cmd, capture_output=True, text=True, env=env)
             if "SUCCESS" in result.stdout:
                 logger.warning(
-                    "🔄 SELF-EVOLUTION COMPLETE: Rebooting fresh PYOB engine..."
+                    "SELF-EVOLUTION COMPLETE: Rebooting fresh PYOB engine..."
                 )
                 os.execv(
                     sys.executable,
@@ -119,21 +119,21 @@ class EntranceController(EntranceMixin):
                 )
             else:
                 logger.error(
-                    f"🚫 REBOOT ABORTED: The evolved code has import/syntax errors:\n{result.stderr}"
+                    f"REBOOT ABORTED: The evolved code has import/syntax errors:\n{result.stderr}"
                 )
                 self.self_evolved_flag = False  # Cancel reboot to stay alive
         except Exception as e:
-            logger.error(f"❌ Pre-flight check failed: {e}")
+            logger.error(f"Pre-flight check failed: {e}")
             self.self_evolved_flag = False
 
     def trigger_production_build(self):
         """Advanced Build: Compiles PYOB into a DMG and replaces the system version."""
         build_script = os.path.join(self.target_dir, "build_pyinstaller_multiOS.py")
         if not os.path.exists(build_script):
-            logger.error("❌ Build script not found. Skipping production deploy.")
+            logger.error("Build script not found. Skipping production deploy.")
             return
 
-        logger.info("🛠️ STARTING PRODUCTION BUILD... This will take 2-3 minutes.")
+        logger.info("STARTING PRODUCTION BUILD... This will take 2-3 minutes.")
         try:
             subprocess.run([sys.executable, build_script], check=True)
 
@@ -143,7 +143,7 @@ class EntranceController(EntranceMixin):
 
             if sys.platform == "darwin" and os.path.exists(dist_path):
                 logger.warning(
-                    f"🚀 FORGE COMPLETE: Deploying new version to {applications_path}..."
+                    f"FORGE COMPLETE: Deploying new version to {applications_path}..."
                 )
 
                 if os.path.exists(applications_path):
@@ -155,11 +155,11 @@ class EntranceController(EntranceMixin):
                     shell=True,
                 )
 
-                logger.info("🔥 NEW VERSION RELAYED. ENGINE SHUTTING DOWN.")
+                logger.info("NEW VERSION RELAYED. ENGINE SHUTTING DOWN.")
                 sys.exit(0)
 
         except Exception as e:
-            logger.error(f"❌ Production Build Failed: {e}")
+            logger.error(f"Production Build Failed: {e}")
 
     def load_ledger(self):
         if os.path.exists(self.symbols_path):
@@ -180,7 +180,7 @@ class EntranceController(EntranceMixin):
         logger.info(
             "\n"
             + "=" * 60
-            + "\n🧠 ENTRANCE CONTROLLER: SYMBOLIC MODE ACTIVE\n"
+            + "\nENTRANCE CONTROLLER: SYMBOLIC MODE ACTIVE\n"
             + "=" * 60
         )
         if not os.path.exists(self.analysis_path):
@@ -201,18 +201,18 @@ class EntranceController(EntranceMixin):
                 changed_files = res.stdout.strip().splitlines()
                 if any(os.path.basename(f) in self.ENGINE_FILES for f in changed_files):
                     logger.warning(
-                        "🧠 REMOTE EVOLUTION: Engine files updated via sync. Rebooting..."
+                        "REMOTE EVOLUTION: Engine files updated via sync. Rebooting..."
                     )
                     self.self_evolved_flag = True
 
             if self.self_evolved_flag:
                 if getattr(sys, "frozen", False):
                     logger.warning(
-                        "💎 COMPILED ENGINE EVOLVED: Initiating Forge Build."
+                        "COMPILED ENGINE EVOLVED: Initiating Forge Build."
                     )
                     self.trigger_production_build()
                 else:
-                    logger.warning("🐍 SCRIPT ENGINE EVOLVED: Initiating Hot-Reboot.")
+                    logger.warning(" SCRIPT ENGINE EVOLVED: Initiating Hot-Reboot.")
                     self.reboot_pyob()
 
             logger.info(
@@ -269,7 +269,7 @@ class EntranceController(EntranceMixin):
         timestamp = int(time.time())
         branch_name = f"pyob-evolution-v{iteration}-{timestamp}"
 
-        logger.info(f"📂 LIBRARIAN: Archiving change in branch `{branch_name}`...")
+        logger.info(f" LIBRARIAN: Archiving change in branch `{branch_name}`...")
 
         if not self._run_git_command(["git", "checkout", "-b", branch_name]):
             return
@@ -281,7 +281,7 @@ class EntranceController(EntranceMixin):
             return
 
         if shutil.which("gh"):
-            logger.info("🚀 Pushing to GitHub and opening Pull Request...")
+            logger.info("Pushing to GitHub and opening Pull Request...")
             self._run_git_command(["git", "push", "origin", branch_name])
             self._run_git_command(
                 [
@@ -298,7 +298,7 @@ class EntranceController(EntranceMixin):
             )
         else:
             logger.warning(
-                "⚠️ GitHub CLI (gh) not found. Change committed locally but not pushed."
+                "GitHub CLI (gh) not found. Change committed locally but not pushed."
             )
 
     def _run_final_verification_and_heal(self, backup_state: dict) -> bool:
@@ -315,7 +315,7 @@ class EntranceController(EntranceMixin):
 
         for attempt in range(3):
             logger.info(
-                f"🚀 Launching `{rel_entry_file}` for test... (Attempt {attempt + 1}/3)"
+                f"Launching `{rel_entry_file}` for test... (Attempt {attempt + 1}/3)"
             )
 
             cmd: list[str] = []
@@ -393,15 +393,15 @@ class EntranceController(EntranceMixin):
             is_crash_code = process.returncode not in (0, 15, -15, None)
 
             if is_crash_code or has_error_logs:
-                logger.warning(f"⚠️ App crashed after {duration:.1f}s!")
+                logger.warning(f"App crashed after {duration:.1f}s!")
                 if attempt < 2:
                     self.llm_engine._fix_runtime_errors(
                         stderr + "\n" + stdout, entry_file
                     )
                 else:
-                    logger.error("❌ Exhausted all 3 auto-fix attempts.")
+                    logger.error(" Exhausted all 3 auto-fix attempts.")
             else:
-                logger.info(f"✅ App ran successfully for {duration:.1f}s.")
+                logger.info(f"App ran successfully for {duration:.1f}s.")
                 return True
 
         self.llm_engine.restore_workspace(backup_state)
@@ -427,7 +427,7 @@ class EntranceController(EntranceMixin):
         if self.manual_target_file:
             target = self.manual_target_file
             self.manual_target_file = None
-            logger.info(f"🎯 Using manual target: {target}")
+            logger.info(f" Using manual target: {target}")
             return target
 
         analysis = self._read_file(self.analysis_path)
@@ -481,7 +481,7 @@ src/pyob/core_utils.py
         return str(final_path)
 
     def build_initial_analysis(self):
-        logger.info("⏳ ANALYSIS.md not found. Bootstrapping Deep Symbolic Scan...")
+        logger.info("ANALYSIS.md not found. Bootstrapping Deep Symbolic Scan...")
         all_files = sorted(self.llm_engine.scan_directory())
         structure_map = "\n".join(
             os.path.relpath(f, self.target_dir) for f in all_files
@@ -490,7 +490,7 @@ src/pyob/core_utils.py
         project_summary = self.llm_engine.get_valid_llm_response(
             proj_prompt, lambda t: len(t) > 5, context="Project Genesis"
         ).strip()
-        content = f"# 🧠 Project Analysis\n\n**Project Summary:**\n{project_summary}\n\n---\n\n## 📂 File Directory\n\n"
+        content = f"# Project Analysis\n\n**Project Summary:**\n{project_summary}\n\n---\n\n## 📂 File Directory\n\n"
         for f_path in all_files:
             rel = os.path.relpath(f_path, self.target_dir)
             logger.info(f"Deep Symbolic Parsing: {rel}")
@@ -510,7 +510,7 @@ src/pyob/core_utils.py
         with open(self.analysis_path, "w", encoding="utf-8") as f:
             f.write(content)
         self.save_ledger()
-        logger.info("✅ ANALYSIS.md and SYMBOLS.json successfully initialized.")
+        logger.info(" ANALYSIS.md and SYMBOLS.json successfully initialized.")
 
     def update_analysis_for_single_file(self, target_abs_path: str, rel_path: str):
         if not os.path.exists(self.analysis_path):
