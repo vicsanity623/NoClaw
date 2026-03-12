@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyOB Documentation — Surgical Autonomy</title>
+    <meta name="description" content="Technical documentation for PyOB — The engine that builds itself.">
+    <!-- Tailwind for SOTA Styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- PrismJS for Syntax Highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #94a3b8; }
+        code, pre { font-family: 'JetBrains Mono', monospace !important; font-size: 0.9em !important; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.05); }
+        .prose h1, .prose h2, .prose h3 { color: #f1f5f9; font-weight: 700; margin-top: 2em; margin-bottom: 1em; }
+        .prose h1 { border-bottom: 1px solid #1e293b; padding-bottom: 0.5rem; }
+        .prose strong { color: #cbd5e1; }
+        .prose a { color: #38bdf8; text-decoration: none; border-bottom: 1px solid transparent; transition: all 0.2s; }
+        .prose a:hover { border-bottom: 1px solid #38bdf8; }
+        .sidebar-link { transition: all 0.2s; border-left: 2px solid transparent; }
+        .sidebar-link:hover { color: #38bdf8; border-left: 2px solid #38bdf8; background: rgba(56, 189, 248, 0.05); }
+        .status-badge { background: linear-gradient(90deg, #0ea5e9, #2563eb); }
+        table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; background: rgba(15, 23, 42, 0.5); border-radius: 8px; overflow: hidden; }
+        th { background: #1e293b; color: #f8fafc; text-align: left; padding: 12px; }
+        td { padding: 12px; border-bottom: 1px solid #1e293b; }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Mobile Header -->
+    <header class="lg:hidden glass sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-2">
+            <i data-lucide="cpu" class="text-sky-500 w-6 h-6"></i>
+            <span class="font-bold text-white tracking-tighter">PyOB</span>
+        </div>
+        <button id="menuBtn"><i data-lucide="menu"></i></button>
+    </header>
+
+    <div class="max-w-[1440px] mx-auto flex">
+        
+        <!-- SIDEBAR -->
+        <aside id="sidebar" class="hidden lg:block fixed w-72 h-screen glass border-r border-slate-800 overflow-y-auto p-8 z-40">
+            <div class="flex items-center gap-3 mb-10">
+                <div class="p-2 bg-sky-500/10 rounded-lg">
+                    <i data-lucide="terminal" class="text-sky-500 w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-white font-bold leading-none tracking-tight">PyOB <span class="text-sky-500">Docs</span></h1>
+                    <p class="text-[10px] uppercase tracking-[0.2em] text-slate-500 mt-1">Surgical Autonomy</p>
+                </div>
+            </div>
+
+            <nav class="space-y-1">
+                <p class="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4 mt-6">Core Documentation</p>
+                <a href="#1-system-philosophy-constrained-surgical-autonomy" class="sidebar-link block py-2 px-4 text-sm">1. System Philosophy</a>
+                <a href="#2-architecture-overview" class="sidebar-link block py-2 px-4 text-sm">2. Architecture</a>
+                <a href="#3-module-reference" class="sidebar-link block py-2 px-4 text-sm font-bold text-slate-300">3. Module Reference</a>
+                <div class="ml-4 border-l border-slate-800">
+                    <a href="#31-pyob_launcherpy--main-cli-entry-point" class="sidebar-link block py-1.5 px-4 text-xs">Launcher</a>
+                    <a href="#32-entrancepy--the-entrance-controller" class="sidebar-link block py-1.5 px-4 text-xs">Entrance</a>
+                    <a href="#33-autoreviewerpy--the-auto-reviewer" class="sidebar-link block py-1.5 px-4 text-xs">AutoReviewer</a>
+                </div>
+                <a href="#4-the-verification--healing-pipeline" class="sidebar-link block py-2 px-4 text-sm">4. Healing Pipeline</a>
+                <a href="#5-symbolic-dependency-management" class="sidebar-link block py-2 px-4 text-sm">5. Symbolic Dep</a>
+                <a href="#6-the-xml-edit-engine" class="sidebar-link block py-2 px-4 text-sm">6. XML Edit Engine</a>
+                <a href="#9-llm-backend--resilience" class="sidebar-link block py-2 px-4 text-sm">9. LLM & Resilience</a>
+                <a href="#14-operational-workflow" class="sidebar-link block py-2 px-4 text-sm">14. Operational Workflow</a>
+                <a href="#15-troubleshooting" class="sidebar-link block py-2 px-4 text-sm text-red-400">15. Troubleshooting</a>
+            </nav>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="flex-1 lg:ml-72 p-6 lg:p-16">
+            
+            <!-- Hero Header -->
+            <div class="mb-16 border-b border-slate-800 pb-12">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="status-badge text-[10px] text-white font-bold px-2 py-0.5 rounded shadow-lg shadow-sky-500/20">STABLE V0.3.1</span>
+                    <span class="text-xs text-slate-500 italic">Last Updated: March 2026</span>
+                </div>
+                <h1 class="text-5xl font-extrabold text-white tracking-tight mb-4">
+                    PyOB Technical <span class="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-500">Documentation</span>
+                </h1>
+                <p class="text-xl text-slate-400 max-w-2xl leading-relaxed">
+                    A self-driven, multi-layer verification engine built on Python 3.12+ and Mixin architectures.
+                </p>
+                <div class="flex gap-4 mt-8">
+                    <a href="#" class="bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-lg font-medium transition flex items-center gap-2">
+                        <i data-lucide="github" class="w-4 h-4"></i> GitHub Repository
+                    </a>
+                </div>
+            </div>
+
+            <article class="prose max-w-none lg:max-w-4xl">
+                
+                <!-- 1. Philosophy -->
+                <section id="1-system-philosophy-constrained-surgical-autonomy">
+                    <h2>1. System Philosophy: Constrained Surgical Autonomy</h2>
+                    <div class="grid md:grid-cols-2 gap-4 my-8">
+                        <div class="glass p-6 rounded-xl border-l-4 border-sky-500">
+                            <h4 class="text-white font-bold mb-2 flex items-center gap-2">
+                                <i data-lucide="shield-check" class="text-sky-500 w-4 h-4"></i> Surgical Patching
+                            </h4>
+                            <p class="text-sm">Applied via &lt;SEARCH&gt;/&lt;REPLACE&gt; blocks limited to 2-5 line anchors to prevent code drift.</p>
+                        </div>
+                        <div class="glass p-6 rounded-xl border-l-4 border-indigo-500">
+                            <h4 class="text-white font-bold mb-2 flex items-center gap-2">
+                                <i data-lucide="git-branch" class="text-indigo-500 w-4 h-4"></i> Atomic Commits
+                            </h4>
+                            <p class="text-sm">Isolated unique branches submitted as PRs via the Librarian module.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2. Architecture -->
+                <section id="2-architecture-overview">
+                    <h2>2. Architecture Overview</h2>
+                    <p>PyOB is structured as a modular Python package located in <code>src/pyob/</code>.</p>
+                    <pre><code class="language-text">CoreUtilsMixin (core_utils.py)
+├── Provides: Smart Sleep, Headless Approval, XML Engine, LLM Streaming
+│
+PromptsAndMemoryMixin (prompts_and_memory.py)
+├── Provides: Rule-based Templates (Rule 7), CRUD Memory
+│
+ValidationMixin + FeatureOperationsMixin (reviewer_mixins.py)
+├── Provides: Ruff/Mypy validation, Runtime Auto-Heal, XML Implementation</code></pre>
+                </section>
+
+                <!-- 3. Module Reference -->
+                <section id="3-module-reference">
+                    <h2>3. Module Reference</h2>
+                    
+                    <h3 id="31-pyob_launcherpy--main-cli-entry-point">3.1 pyob_launcher.py — Main CLI Entry Point</h3>
+                    <table>
+                        <thead>
+                            <tr><th>Method</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><code>load_config</code></td><td>Pulls keys from <code>~/.pyob_config</code> or Env. Detects non-TTY.</td></tr>
+                            <tr><td><code>ensure_terminal</code></td><td>macOS logic to force PyOB into a visible window.</td></tr>
+                        </tbody>
+                    </table>
+
+                    <h3 id="32-entrancepy--the-entrance-controller">3.2 entrance.py — The Entrance Controller</h3>
+                    <p>The master orchestrator. Manages symbolic targeting, Git lifecycle, and <strong>Hot-Reboots</strong>.</p>
+                    <pre><code class="language-python"># Example of the Hot-Reboot Logic
+def reboot_pyob(self):
+    if self.verify_new_importability():
+        os.execv(sys.executable, ['python'] + sys.argv)</code></pre>
+                </section>
+
+                <!-- 4. Pipeline -->
+                <section id="4-the-verification--healing-pipeline">
+                    <h2>4. The Verification & Healing Pipeline</h2>
+                    <div class="space-y-4">
+                        <div class="glass p-6 rounded-xl">
+                            <div class="flex gap-4">
+                                <div class="text-sky-500 font-bold text-2xl">01</div>
+                                <div>
+                                    <h4 class="text-white font-bold">Atomic XML Match</h4>
+                                    <p class="text-sm opacity-80 text-slate-300">Edits are binary: every block must match perfectly or the entire iteration is discarded.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="glass p-6 rounded-xl">
+                            <div class="flex gap-4">
+                                <div class="text-sky-500 font-bold text-2xl">02</div>
+                                <div>
+                                    <h4 class="text-white font-bold">Syntactic Broom</h4>
+                                    <p class="text-sm opacity-80 text-slate-300">Runs <code>ruff format</code> and <code>ruff check --fix</code> automatically to clear unused imports.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 9. Resilience -->
+                <section id="9-llm-backend--resilience">
+                    <h2>9. LLM Backend & Smart Sleep Backoff</h2>
+                    <p>PyOB rotates through a pool of up to 10 Gemini API keys. Keys hitting <code>429 Rate Limit</code> are quarantined for 20 mins.</p>
+                    <div class="bg-blue-500/10 border border-blue-500/20 p-4 rounded-lg text-blue-200 text-sm">
+                        <strong>Formula:</strong> <code>sleep_duration = min(key_cooldowns) - current_time</code>
+                    </div>
+                </section>
+
+                <!-- 15. Troubleshooting -->
+                <section id="15-troubleshooting" class="mb-20">
+                    <h2 class="text-red-400">15. Troubleshooting</h2>
+                    <div class="space-y-6">
+                        <div class="border-l-2 border-slate-700 pl-6">
+                            <h4 class="text-white">ModuleNotFoundError: No module named 'src'</h4>
+                            <p class="text-sm">AI incorrectly added <code>src.</code> prefix. Fix by ensuring Rule 7 is enforced in the prompt template.</p>
+                        </div>
+                        <div class="border-l-2 border-slate-700 pl-6">
+                            <h4 class="text-white">termios.error: Inappropriate ioctl for device</h4>
+                            <p class="text-sm">PyOB tried to call <code>input()</code> in CI. Ensure Headless Auto-Approval is active.</p>
+                        </div>
+                    </div>
+                </section>
+            </article>
+
+            <footer class="mt-20 pt-10 border-t border-slate-800 text-center">
+                <p class="text-sm text-slate-500">
+                    PyOB — The engine that builds itself, with surgical precision. 🦅
+                </p>
+            </footer>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script>
+        // Initialize Icons
+        lucide.createIcons();
+
+        // Mobile Menu Toggle
+        const menuBtn = document.getElementById('menuBtn');
+        const sidebar = document.getElementById('sidebar');
+        menuBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('hidden');
+            sidebar.classList.toggle('bg-slate-900');
+            sidebar.classList.add('w-full');
+        });
+    </script>
+</body>
+</html>
