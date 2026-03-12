@@ -331,7 +331,7 @@ def get_valid_llm_response_engine(
             if validator(clean_text):
                 return clean_text
 
-            wait = 15 if is_cloud else 5
+            wait = 60 if is_cloud else 5
             logger.warning(f"⚠️ Response invalid. Backing off {wait}s...")
             time.sleep(wait)
             attempts += 1
