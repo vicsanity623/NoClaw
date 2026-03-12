@@ -61,13 +61,13 @@ def stream_ollama(prompt: str, on_chunk: Callable[[], None]) -> str:
         or "GITHUB_RUN_ID" in os.environ
     ):
         logger.error(
-            "🚫 SECURITY VIOLATION: Ollama called in Cloud environment. ABORTING."
+            "SECURITY VIOLATION: Ollama called in Cloud environment. ABORTING."
         )
         time.sleep(60)  # CRITICAL: Hard sleep kills outer loop machine-gun attempts
         return "ERROR_CODE_CLOUD_OLLAMA_FORBIDDEN"
 
     if not OLLAMA_AVAILABLE:
-        logger.error("🚫 Ollama is not available.")
+        logger.error("Ollama is not available.")
         time.sleep(60)
         return "ERROR_CODE_OLLAMA_UNAVAILABLE"
 
@@ -97,7 +97,7 @@ def stream_github_models(
 ) -> str:
     token = os.environ.get("GITHUB_TOKEN")
     if not token:
-        logger.error("🚫 GITHUB_TOKEN is missing. Cannot use GitHub Models.")
+        logger.error("GITHUB_TOKEN is missing. Cannot use GitHub Models.")
         time.sleep(60)
         return "ERROR_CODE_TOKEN_MISSING"
 
@@ -133,7 +133,7 @@ def stream_github_models(
         if response.status_code != 200:
             error_body = response.text
             logger.error(
-                f"❌ GitHub Models ({actual_model}) Error {response.status_code}: {error_body}"
+                f"GitHub Models ({actual_model}) Error {response.status_code}: {error_body}"
             )
             return f"ERROR_CODE_{response.status_code}"
 
@@ -155,7 +155,7 @@ def stream_github_models(
                 continue
         return full_text
     except Exception as e:
-        logger.error(f"❌ GitHub Models Exception: {e}")
+        logger.error(f"GitHub Models Exception: {e}")
         time.sleep(30)
         return f"ERROR_CODE_EXCEPTION: {str(e)}"
 
@@ -181,7 +181,7 @@ def stream_single_llm(
         while not first_chunk_received[0]:
             cols, _ = shutil.get_terminal_size((80, 20))
             elapsed = time.time() - gen_start_time
-            expected_time = max(1, input_tokens / 12.0)
+            expected_time = max(1, input_tokens / 34.0)
             progress = min(1.0, elapsed / expected_time)
             bar_len = max(10, cols - 65)
             filled = int(progress * bar_len)
@@ -203,7 +203,7 @@ def stream_single_llm(
             source = f"Gemini ...{key[-4:]}" if key else f"GitHub Models ({gh_model})"
             if not key and not is_cloud:
                 source = "Local Ollama"
-            print(f"🤖 AI Output ({source}): ", end="", flush=True)
+            print(f"AI Output ({source}): ", end="", flush=True)
 
     response_text = ""
     try:
@@ -216,7 +216,7 @@ def stream_single_llm(
             if response_text and "413" in response_text:
                 first_chunk_received[0] = True
                 logger.warning(
-                    "\n⚠️ Payload too large. Sleeping 60s, then pivoting to Gemini..."
+                    "\nPayload too large. Sleeping 60s, then pivoting to Gemini..."
                 )
                 time.sleep(60)
                 gemini_keys = [
@@ -245,7 +245,7 @@ def stream_single_llm(
     first_chunk_received[0] = True
     if response_text and not response_text.startswith("ERROR_CODE_"):
         print(
-            f"\n\n[✅ Generation Complete: ~{len(response_text) // 4} tokens in {time.time() - gen_start_time:.1f}s]"
+            f"\n\n[Generation Complete: ~{len(response_text) // 4} tokens in {time.time() - gen_start_time:.1f}s]"
         )
     return response_text
 
@@ -282,20 +282,20 @@ def get_valid_llm_response_engine(
             if now < key_cooldowns.get("github_llama", 0):
                 remaining = int(key_cooldowns["github_llama"] - now)
                 logger.warning(
-                    f"⏳ Llama-3 daily quota exhausted. {remaining}s remaining. Trying Phi-4..."
+                    f"Llama-3 daily quota exhausted. {remaining}s remaining. Trying Phi-4..."
                 )
                 response_text = stream_single_llm(
                     prompt, key=None, context=context, gh_model="Phi-4"
                 )
             else:
                 logger.warning(
-                    "⏳ Gemini limited. Pivoting to GitHub Models (Llama-3)..."
+                    "Gemini limited. Pivoting to GitHub Models (Llama-3)..."
                 )
                 response_text = stream_single_llm(
                     prompt, key=None, context=context, gh_model="Llama-3"
                 )
         else:
-            logger.info("🏠 Using Local Ollama Engine...")
+            logger.info(" Using Local Ollama Engine...")
             response_text = stream_single_llm(prompt, key=None, context=context)
 
         # --- ERROR HANDLING BLOCK ---
@@ -303,11 +303,11 @@ def get_valid_llm_response_engine(
             # 1. Handle Gemini 429 (Minute limits)
             if key and response_text and "429" in response_text:
                 key_cooldowns[key] = time.time() + 60
-                logger.warning(f"⚠️ Key {key[-4:]} rate-limited. Rotating...")
+                logger.warning(f"Key {key[-4:]} rate-limited. Rotating...")
                 # Immediate pivot attempt for this loop
                 if is_cloud:
                     logger.warning(
-                        "☁️ Gemini limited. Pivoting to GitHub Models (Llama-3)..."
+                        "Gemini limited. Pivoting to GitHub Models (Llama-3)..."
                     )
                     response_text = stream_single_llm(
                         prompt, key=None, context=context, gh_model="Llama-3"
@@ -327,12 +327,12 @@ def get_valid_llm_response_engine(
                 if "Llama-3" in response_text or "llama" in response_text.lower():
                     key_cooldowns["github_llama"] = time.time() + seconds_to_wait + 60
                     logger.error(
-                        f"🛑 GITHUB DAILY QUOTA REACHED (Llama-3). Cooldown: {seconds_to_wait}s"
+                        f"GITHUB DAILY QUOTA REACHED (Llama-3). Cooldown: {seconds_to_wait}s"
                     )
                 else:
                     key_cooldowns["github_phi"] = time.time() + seconds_to_wait + 60
                     logger.error(
-                        f"🛑 GITHUB DAILY QUOTA REACHED (Phi-4). Cooldown: {seconds_to_wait}s"
+                        f"GITHUB DAILY QUOTA REACHED (Phi-4). Cooldown: {seconds_to_wait}s"
                     )
 
             # 3. Handle Cloud Fallbacks (Llama -> Phi)
@@ -344,7 +344,7 @@ def get_valid_llm_response_engine(
                 else:
                     # If we haven't already tried Phi-4 this loop
                     logger.warning(
-                        "☁️ Model failed or limited. Pivoting to GitHub Models (Phi-4)..."
+                        "Model failed or limited. Pivoting to GitHub Models (Phi-4)..."
                     )
                     response_text = stream_single_llm(
                         prompt, key=None, context=context, gh_model="Phi-4"
@@ -354,7 +354,7 @@ def get_valid_llm_response_engine(
             if not response_text or response_text.startswith("ERROR_CODE_"):
                 wait = 60
                 logger.warning(
-                    f"⚠️ All Engines failed or exhausted. Sleeping {wait}s for refill..."
+                    f"All Engines failed or exhausted. Sleeping {wait}s for refill..."
                 )
                 time.sleep(wait)
                 attempts += 1
@@ -376,6 +376,6 @@ def get_valid_llm_response_engine(
                 return clean_text
 
             wait = 60 if is_cloud else 5
-            logger.warning(f"⚠️ Response invalid. Backing off {wait}s...")
+            logger.warning(f"Response invalid. Backing off {wait}s...")
             time.sleep(wait)
             attempts += 1
