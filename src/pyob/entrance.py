@@ -13,6 +13,7 @@ from typing import Optional
 from .autoreviewer import AutoReviewer
 from .entrance_mixins import EntranceMixin
 from .pyob_code_parser import CodeParser
+from .remote_sync_handler import RemoteSyncHandler
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(message)s")
 logger = logging.getLogger(__name__)
@@ -52,6 +53,7 @@ class EntranceController(EntranceMixin):
         self.manual_target_file: Optional[str] = None
 
         self.current_iteration = 1
+        self.remote_sync_handler = RemoteSyncHandler(self.target_dir)
 
         if not self.skip_dashboard:
             self.start_dashboard()
@@ -188,7 +190,7 @@ class EntranceController(EntranceMixin):
             self.current_iteration = iteration
             self.self_evolved_flag = False
 
-            if self.sync_with_remote():
+            if self.remote_sync_handler.sync_with_remote():
                 res = subprocess.run(
                     ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"],
                     cwd=self.target_dir,
@@ -208,7 +210,7 @@ class EntranceController(EntranceMixin):
                     self.trigger_production_build()
                 else:
                     logger.warning(" SCRIPT ENGINE EVOLVED: Initiating Hot-Reboot.")
-                    self.reboot_pyob()
+                    self.remote_sync_handler.reboot_pyob()
 
             logger.info(
                 f"\n\n{'=' * 70}\nTargeted Pipeline Loop (Iteration {iteration})\n{'=' * 70}"
