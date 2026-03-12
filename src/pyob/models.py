@@ -12,8 +12,10 @@ import requests
 
 logger = logging.getLogger("PyOuroBoros")
 
+OLLAMA_OVERRIDE = os.environ.get("OLLAMA_AVAILABLE") == "True"
+
 try:
-    if (
+    if not OLLAMA_OVERRIDE and (
         os.environ.get("GITHUB_ACTIONS") == "true"
         or os.environ.get("CI") == "true"
         or "GITHUB_RUN_ID" in os.environ
@@ -21,7 +23,6 @@ try:
         OLLAMA_AVAILABLE = False
     else:
         import ollama
-
         OLLAMA_AVAILABLE = True
 except ImportError:
     OLLAMA_AVAILABLE = False
