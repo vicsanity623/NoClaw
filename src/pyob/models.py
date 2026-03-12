@@ -23,6 +23,7 @@ try:
         OLLAMA_AVAILABLE = False
     else:
         import ollama
+
         OLLAMA_AVAILABLE = True
 except ImportError:
     OLLAMA_AVAILABLE = False
