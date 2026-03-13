@@ -103,6 +103,10 @@ def main():
     os.environ.setdefault(
         "PYOB_LOCAL_MODEL", config.get("local_model", DEFAULT_LOCAL_MODEL)
     )
+    # Determine if dashboard is active, e.g., via environment variable
+    dashboard_active = (
+        os.environ.get("PYOB_DASHBOARD_ACTIVE", "false").lower() == "true"
+    )
 
     from pyob.entrance import EntranceController
 
@@ -175,7 +179,8 @@ def main():
     print("   (Terminal will stay open — press Ctrl+C to stop)\n")
 
     try:
-        controller = EntranceController(target_dir)
+        # Pass dashboard_active status to the EntranceController
+        controller = EntranceController(target_dir, dashboard_active=dashboard_active)
         controller.run_master_loop()
     except KeyboardInterrupt:
         print("\n\nPYOB stopped by user.")
