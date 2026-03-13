@@ -12,10 +12,8 @@ import requests
 
 logger = logging.getLogger("PyOuroBoros")
 
-OLLAMA_OVERRIDE = os.environ.get("OLLAMA_AVAILABLE") == "True"
-
 try:
-    if not OLLAMA_OVERRIDE and (
+    if (
         os.environ.get("GITHUB_ACTIONS") == "true"
         or os.environ.get("CI") == "true"
         or "GITHUB_RUN_ID" in os.environ
@@ -69,47 +67,40 @@ def stream_gemini(prompt: str, api_key: str, on_chunk: Callable[[], None]) -> st
 
 
 def stream_ollama(prompt: str, on_chunk: Callable[[], None]) -> str:
-    # 1. Removed the "SECURITY VIOLATION" abort logic
-    # 2. Check if the environment variable or flag is set
-    ollama_enabled = os.environ.get("OLLAMA_AVAILABLE") == "True" or OLLAMA_AVAILABLE
+    if (
+        os.environ.get("GITHUB_ACTIONS") == "true"
+        or os.environ.get("CI") == "true"
+        or "GITHUB_RUN_ID" in os.environ
+    ):
+        logger.error(
+            "SECURITY VIOLATION: Ollama called in Cloud environment. ABORTING."
+        )
+        time.sleep(60)  # CRITICAL: Hard sleep kills outer loop machine-gun attempts
+        return "ERROR_CODE_CLOUD_OLLAMA_FORBIDDEN"
 
-    if not ollama_enabled:
-        logger.error("Ollama is not configured as available.")
+    if not OLLAMA_AVAILABLE:
+        logger.error("Ollama is not available.")
         time.sleep(60)
         return "ERROR_CODE_OLLAMA_UNAVAILABLE"
 
     response_text = ""
     try:
-        # Use a specific Client to force the connection to the localhost port
-        # where the background 'ollama serve' is running
-        client = ollama.Client(host="http://127.0.0.1:11434")
-
-        stream = client.chat(
+        stream = ollama.chat(
             model=LOCAL_MODEL,
             messages=[{"role": "user", "content": prompt}],
-            options={"temperature": 0.1, "num_ctx": 16000},
+            options={"temperature": 0.1, "num_ctx": 32000},
             stream=True,
         )
-
         for chunk in stream:
             content = chunk.get("message", {}).get("content", "")
             if content:
                 on_chunk()
-                # Print only in non-headless/non-cloud or if you want to see progress
-                # Removing the print if GITHUB_ACTIONS is active can save log space
-                if not (os.environ.get("GITHUB_ACTIONS") == "true"):
-                    print(content, end="", flush=True)
+                print(content, end="", flush=True)
                 response_text += content
-
     except Exception as e:
         logger.error(f"Ollama Error: {e}")
-        # If it fails, wait to prevent the bot from spamming the CPU
         time.sleep(30)
         return f"ERROR_CODE_EXCEPTION: {e}"
-
-    if not response_text:
-        return "ERROR_CODE_EMPTY_RESPONSE"
-
     return response_text
 
 
@@ -356,7 +347,7 @@ def get_valid_llm_response_engine(
 
             # 4. Final Fail-Safe Sleep
             if not response_text or response_text.startswith("ERROR_CODE_"):
-                wait = 300
+                wait = 60
                 logger.warning(
                     f"All Engines failed or exhausted. Sleeping {wait}s for refill..."
                 )
