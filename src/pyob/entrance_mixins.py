@@ -10,6 +10,7 @@ from http.server import HTTPServer
 from pathlib import Path
 from typing import Any
 
+from .apply_xml_mixins import ApplyXMLMixin
 from .autoreviewer import AutoReviewer
 from .dashboard_html import OBSERVER_HTML
 from .pyob_dashboard import ObserverHandler
@@ -17,7 +18,7 @@ from .pyob_dashboard import ObserverHandler
 logger = logging.getLogger(__name__)
 
 
-class TargetedReviewer(AutoReviewer):
+class TargetedReviewer(AutoReviewer, ApplyXMLMixin):
     def __init__(self, target_dir: str, target_file: str):
         super().__init__(target_dir)
         self.forced_target_file = target_file
