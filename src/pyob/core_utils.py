@@ -59,6 +59,8 @@ IGNORE_DIRS = {
 IGNORE_FILES = {
     "package-lock.json",
     "LICENSE",
+    "manifest.hson",
+    "sw.js",
     "action.yml",
     "Dockerfile",
     "PEER_REVIEW.md",
@@ -90,6 +92,11 @@ IGNORE_FILES = {
     "README.md",
     "DOCUMENTATION.md",
     "observer.html",
+    "apply_xml_edit.py",
+    "dashboard_html.py",
+    "get_valid_edit.py",
+    "models.py",
+    "pyob_dashboard.py",
 }
 SUPPORTED_EXTENSIONS = {".py", ".js", ".ts", ".html", ".css", ".json", ".sh"}
 
