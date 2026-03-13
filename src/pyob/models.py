@@ -80,17 +80,17 @@ def stream_ollama(prompt: str, on_chunk: Callable[[], None]) -> str:
 
     response_text = ""
     try:
-        # Use a specific Client to force the connection to the localhost port 
+        # Use a specific Client to force the connection to the localhost port
         # where the background 'ollama serve' is running
-        client = ollama.Client(host='http://127.0.0.1:11434')
-        
+        client = ollama.Client(host="http://127.0.0.1:11434")
+
         stream = client.chat(
             model=LOCAL_MODEL,
             messages=[{"role": "user", "content": prompt}],
             options={"temperature": 0.1, "num_ctx": 16000},
             stream=True,
         )
-        
+
         for chunk in stream:
             content = chunk.get("message", {}).get("content", "")
             if content:
@@ -100,16 +100,16 @@ def stream_ollama(prompt: str, on_chunk: Callable[[], None]) -> str:
                 if not (os.environ.get("GITHUB_ACTIONS") == "true"):
                     print(content, end="", flush=True)
                 response_text += content
-                
+
     except Exception as e:
         logger.error(f"Ollama Error: {e}")
         # If it fails, wait to prevent the bot from spamming the CPU
         time.sleep(30)
         return f"ERROR_CODE_EXCEPTION: {e}"
-        
+
     if not response_text:
         return "ERROR_CODE_EMPTY_RESPONSE"
-        
+
     return response_text
 
 
