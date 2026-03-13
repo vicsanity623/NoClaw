@@ -14,7 +14,11 @@ class ScannerMixin:
             for file in files:
                 if file in IGNORE_FILES:
                     continue
-                if file.endswith(".spec") or file.endswith(".json") or file.endswith(".dmg"):
+                if (
+                    file.endswith(".spec")
+                    or file.endswith(".json")
+                    or file.endswith(".dmg")
+                ):
                     continue
                 if any(file.endswith(ext) for ext in SUPPORTED_EXTENSIONS):
                     file_list.append(os.path.join(root, file))
