@@ -47,12 +47,7 @@ class ObserverHandler(BaseHTTPRequestHandler):
         # New GET endpoint for pending patches
         elif self.path == "/api/pending_patches":
             if self.controller is None:
-                self.send_response(503)
-                self.send_header("Content-type", "application/json")
-                self.end_headers()
-                self.wfile.write(
-                    json.dumps({"error": "Controller not initialized"}).encode()
-                )
+                self._send_controller_not_initialized_error()
                 return
             try:
                 pending_patches = (
