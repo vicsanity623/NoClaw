@@ -430,28 +430,27 @@ class EntranceController(EntranceMixin):
                     else ["node", entry_file]
                 )
             elif is_html:
+                # SAFE GUARD: Skip opening browser in GitHub Actions
                 if os.environ.get("GITHUB_ACTIONS") == "true":
+                    logger.info("Skipping browser launch in GitHub Actions.")
                     return True
-                cmd = (
-                    ["open", entry_file]
-                    if sys.platform == "darwin"
-                    else (
-                        [f'start "" "{entry_file}"']
-                        if sys.platform == "win32"
-                        else [
-                            "xdg-open",
-                            entry_file,
-                        ]  # Default for other OS, e.g., Linux
-                    )
-                )
+                
+                # Command to open browser based on OS
+                if sys.platform == "darwin":
+                    cmd = ["open", entry_file]
+                elif sys.platform == "win32":
+                    cmd = [f'start "" "{entry_file}"']
+                else:
+                    cmd = ["xdg-open", entry_file]
 
             if not cmd:
                 return True
 
-            use_shell = bool(cmd and (cmd[0] == "start" or cmd[0] == "open"))
+            use_shell = bool(cmd and (cmd[0].startswith("start") or cmd[0] == "open"))
 
             start_time = time.time()
             try:
+                # We use a context manager for popen to ensure cleanup
                 process = subprocess.Popen(
                     cmd,
                     stdout=subprocess.PIPE,
@@ -475,6 +474,8 @@ class EntranceController(EntranceMixin):
                 stdout, stderr = "", str(e)
 
             duration = time.time() - start_time
+            
+            # Check for common crash keywords in output
             has_error_logs = any(
                 kw in stderr or kw in stdout
                 for kw in [
@@ -491,6 +492,7 @@ class EntranceController(EntranceMixin):
             if is_crash_code or has_error_logs:
                 logger.warning(f"App crashed after {duration:.1f}s!")
                 if attempt < 2:
+                    # Let the AI try to fix the crash
                     self.llm_engine._fix_runtime_errors(
                         stderr + "\n" + stdout, entry_file
                     )
@@ -500,6 +502,7 @@ class EntranceController(EntranceMixin):
                 logger.info(f"App ran successfully for {duration:.1f}s.")
                 return True
 
+        # If we got through all 3 attempts and still failed, rollback
         self.llm_engine.restore_workspace(backup_state)
         return False
 
