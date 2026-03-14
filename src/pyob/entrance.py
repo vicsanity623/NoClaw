@@ -422,8 +422,6 @@ class EntranceController(EntranceMixin):
                     venv_python if os.path.exists(venv_python) else sys.executable
                 )
                 cmd = [python_cmd, entry_file]
-                if os.path.basename(entry_file) == "entrance.py":
-                    cmd.append("--no-dashboard")
             elif is_js:
                 cmd = (
                     ["npm", "start"]
