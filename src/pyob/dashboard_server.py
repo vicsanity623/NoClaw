@@ -36,7 +36,9 @@ def history():
 
 def run_server():
     logger.info("Starting Flask server...")
-    app.run(debug=True, use_reloader=False)
+    # Use an environment variable to control debug mode for safety
+    debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
+    app.run(debug=debug_mode, use_reloader=False)
 
 
 if __name__ == "__main__":
