@@ -28,7 +28,7 @@ class ObserverHandler(BaseHTTPRequestHandler):
             self.end_headers()
             status = {
                 "iteration": getattr(self.controller, "current_iteration", 1),
-                "cascade_queue": self.controller.cascade_queue,
+                "cascade_queue": getattr(self.controller, "cascade_queue", []),
                 "ledger_stats": {
                     "definitions": len(self.controller.ledger["definitions"]),
                     "references": len(self.controller.ledger["references"]),
