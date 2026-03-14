@@ -167,15 +167,15 @@ class GetValidEditMixin:
                 continue
 
             if response.startswith("ERROR_CODE_") or not response.strip():
-                if key and not ("429" in (response or "")):
+                if key and "429" not in (response or ""):
                     key_cooldowns[key] = time.time() + 10
-                
+
                 if available_keys:
                     logger.warning(f"Engine failed with error: {str(response)[:60]}... Rotating...")
                     attempts += 1
                     time.sleep(2)
                     continue
-                
+
                 logger.warning("API Error or Empty Response. Sleeping 60s...")
                 time.sleep(60)
                 attempts += 1
