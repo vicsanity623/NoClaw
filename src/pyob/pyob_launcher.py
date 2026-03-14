@@ -48,6 +48,9 @@ def load_config():
     print("\nStep 1: Gemini API Keys")
     print("Enter up to 10 keys separated by commas:")
     keys = input("Keys: ").strip()
+    if not keys:
+        print("Error: Gemini API keys cannot be empty during interactive setup.")
+        sys.exit(1)
 
     print("\nStep 2: Model Configuration")
     print("WARNING: PYOB is optimized for 'gemini-2.0-flash' and 'qwen3-coder:30b'.")
