@@ -94,7 +94,7 @@ class FeatureOperationsMixin:
             f"The AI has prepared a prompt to generate a feature proposal for: {rel_path}"
         )
         user_choice = getattr(self, "get_user_approval")(
-            "Hit ENTER to send as-is, type 'EDIT_PROMPT' to refine the full prompt, 'AUGMENT_PROMPT' to add quick instructions, or 'SKIP' to cancel this proposal.",
+            "Hit ENTER to send as-is, type 'EDIT_PROMPT' to refine the full prompt, or 'SKIP' to cancel this proposal.",
             timeout=220,
         )
         if user_choice == "SKIP":
@@ -105,14 +105,6 @@ class FeatureOperationsMixin:
             if not prompt.strip():
                 logger.warning("Edited prompt is empty. Skipping feature proposal.")
                 return
-        elif user_choice == "AUGMENT_PROMPT":
-            logger.info("Opening augmentation editor to add quick instructions...")
-            augmentation_text = getattr(self, "_get_user_prompt_augmentation")()
-            if augmentation_text.strip():
-                prompt += f"\n\n### User Augmentation:\n{augmentation_text.strip()}"
-                logger.info("Prompt augmented with user input for feature proposal.")
-            else:
-                logger.info("No augmentation provided.")
 
         def validator(text):
             return "<SNIPPET>" in text and "</SNIPPET>" in text
