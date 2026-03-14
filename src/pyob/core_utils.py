@@ -152,11 +152,13 @@ class CoreUtilsMixin:
                 context="PR Architect",
             )
 
-            json_match = re.search(r'(\{.*\})', response, re.DOTALL)
+            json_match = re.search(r"(\{.*\})", response, re.DOTALL)
             if json_match:
                 clean_json = json_match.group(1)
             else:
-                clean_json = re.sub(r"^```json\s*|\s*```$", "", response.strip(), flags=re.MULTILINE)
+                clean_json = re.sub(
+                    r"^```json\s*|\s*```$", "", response.strip(), flags=re.MULTILINE
+                )
 
             data = json.loads(clean_json)
             if isinstance(data, dict):
