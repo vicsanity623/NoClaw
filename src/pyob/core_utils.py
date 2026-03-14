@@ -307,27 +307,6 @@ class CoreUtilsMixin:
             )
         )
 
-    def _get_user_prompt_augmentation(self, initial_text: str = "") -> str:
-        import tempfile
-
-        editor = os.environ.get("EDITOR", "nano")
-        with tempfile.NamedTemporaryFile(
-            mode="w+", delete=False, encoding="utf-8", suffix=".txt"
-        ) as tmp_file:
-            tmp_file.write(initial_text)
-            tmp_file_path = tmp_file.name
-        logger.info(f"Opening prompt augmentation editor: {editor}")
-        try:
-            subprocess.run([editor, tmp_file_path], check=True)
-            with open(tmp_file_path, "r", encoding="utf-8") as f:
-                edited_content = f.read()
-            return edited_content
-        except Exception:
-            return initial_text
-        finally:
-            if os.path.exists(tmp_file_path):
-                os.remove(tmp_file_path)
-
     def _find_entry_file(self) -> str | None:
         priority_files = [
             "entrance.py",
