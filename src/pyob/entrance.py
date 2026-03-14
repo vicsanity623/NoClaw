@@ -36,11 +36,12 @@ class EntranceController(EntranceMixin):
         "get_valid_edit.py",
     ]
 
-    def __init__(self, target_dir: str):
+    def __init__(self, target_dir: str, dashboard_active: bool = True):
         self.target_dir = os.path.abspath(target_dir)
         self.pyob_dir = os.path.join(self.target_dir, ".pyob")
         os.makedirs(self.pyob_dir, exist_ok=True)
-        self.skip_dashboard = "--no-dashboard" in sys.argv
+        self.skip_dashboard = ("--no-dashboard" in sys.argv) or (not dashboard_active)
+
         self.analysis_path = os.path.join(self.pyob_dir, "ANALYSIS.md")
         self.history_path = os.path.join(self.pyob_dir, "HISTORY.md")
         self.symbols_path = os.path.join(self.pyob_dir, "SYMBOLS.json")
