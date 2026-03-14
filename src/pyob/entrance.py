@@ -59,6 +59,7 @@ class EntranceController(EntranceMixin):
         "reviewer_mixins.py",
         "scanner_mixins.py",
         "get_valid_edit.py",
+        "targeted_reviewer.py",
     ]
 
     def __init__(self, target_dir: str, dashboard_active: bool = True):
