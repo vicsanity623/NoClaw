@@ -615,7 +615,8 @@ src/pyob/core_utils.py
         if rel_path in self.ledger["references"]:
             del self.ledger["references"][rel_path]
 
-        potential_refs = re.findall(r"([a-zA-Z0-9_$]{4,})(?=\s*\(|\s*\.)", code)
+        # Capture any word-like identifier of at least 4 characters for potential references
+        potential_refs = re.findall(r"\b[a-zA-Z_][a-zA-Z0-9_]{3,}\b", code)
         self.ledger["references"][rel_path] = list(set(potential_refs))
         self.save_ledger()
 
