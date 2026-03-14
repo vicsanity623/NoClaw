@@ -1,4 +1,5 @@
 import ast
+import atexit
 import difflib
 import json
 import logging
@@ -69,6 +70,7 @@ class EntranceController(EntranceMixin):
         "autoreviewer.py",
         "core_utils.py",
         "dashboard_html.py",
+        "dashboard_server.py",
         "entrance.py",
         "entrance_mixins.py",
         "feature_mixins.py",
@@ -100,6 +102,7 @@ class EntranceController(EntranceMixin):
         self.cascade_diffs: dict[str, str] = {}
         self.self_evolved_flag: bool = False
         self.manual_target_file: Optional[str] = None
+        self.dashboard_process: Optional[subprocess.Popen] = None
 
         self.current_iteration = 1
 
@@ -119,6 +122,41 @@ class EntranceController(EntranceMixin):
         else:
             logger.warning(f"Manual target file not found: {file_path}")
             return False, f"Error: File not found at path: {file_path}"
+
+    def start_dashboard(self):
+        """Starts the Flask dashboard server in a separate process."""
+        logger.info("Starting PyOB Dashboard server...")
+        try:
+            env = os.environ.copy()
+            env["PYOB_DIR"] = self.pyob_dir  # Pass the .pyob directory path
+            self.dashboard_process = subprocess.Popen(
+                [sys.executable, "-m", "pyob.dashboard_server"],
+                cwd=self.target_dir,  # Run from target_dir so relative paths (if any) are correct
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env,  # Pass the modified environment
+            )
+            logger.info(
+                f"Dashboard server started with PID: {self.dashboard_process.pid}"
+            )
+            # Register a cleanup function to terminate the dashboard process on exit
+            atexit.register(self._terminate_dashboard_process)
+        except Exception as e:
+            logger.error(f"Failed to start dashboard server: {e}")
+            self.dashboard_process = None
+
+    def _terminate_dashboard_process(self):
+        """Terminates the dashboard server process if it's running."""
+        if self.dashboard_process and self.dashboard_process.poll() is None:
+            logger.info("Terminating PyOB Dashboard server...")
+            self.dashboard_process.terminate()
+            try:
+                self.dashboard_process.wait(timeout=5)  # Give it some time to shut down
+            except subprocess.TimeoutExpired:
+                self.dashboard_process.kill()
+                logger.warning("Dashboard server did not terminate gracefully, killed.")
+            logger.info("PyOB Dashboard server terminated.")
 
     def sync_with_remote(self) -> bool:
         """Fetches remote updates and merges main if we are behind."""
