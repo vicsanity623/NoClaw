@@ -252,8 +252,7 @@ class EntranceController(EntranceMixin, CoreUtilsMixin):
                 shutil.copytree(dist_path, applications_path)
 
                 subprocess.Popen(
-                    ["open", "-a", applications_path, "--args", self.target_dir],
-                    shell=True,
+                    ["open", "-a", applications_path, "--args", self.target_dir]
                 )
 
                 logger.info("NEW VERSION RELAYED. ENGINE SHUTTING DOWN.")
