@@ -30,7 +30,31 @@ def load_config() -> dict:
     This function checks for the GEMINI_API_KEY environment variable.
     """
     config = {}
-    gemini_key = os.environ.get("GEMINI_API_KEY")
+    # Define paths to search for config.json, in order of increasing precedence
+    config_paths = [
+        os.path.join(_current_file_dir, "config.json"),
+        os.path.join(_pyob_package_root_dir, "config.json"),
+        os.path.join(os.getcwd(), "config.json"),
+    ]
+
+    # Merge configurations from files
+    for path in config_paths:
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    file_config = json.load(f)
+                    config.update(file_config)  # Merge, later files override earlier
+            except json.JSONDecodeError as e:
+                logger.warning(f"WARNING: Could not parse config.json at {path}: {e}")
+            except FileNotFoundError:
+                pass  # Already checked os.path.exists, so this shouldn't happen
+
+    # Environment variable overrides config.json value
+    gemini_key_env = os.environ.get("GEMINI_API_KEY")
+    if gemini_key_env:
+        config["gemini_api_key"] = gemini_key_env
+    # Now, gemini_key should be retrieved from the merged config for validation
+    gemini_key = config.get("gemini_api_key")
     if not gemini_key:
         logger.critical(
             "CRITICAL ERROR: GEMINI_API_KEY environment variable is not set or is empty."
