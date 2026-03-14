@@ -10,19 +10,14 @@ import sys
 import time
 from typing import Optional
 
-# --- START FIX FOR RELATIVE IMPORTS WHEN RUN DIRECTLY ---
-# This block ensures that when entrance.py is run directly (e.g., python src/pyob/entrance.py),
-# it can still resolve its relative imports by adding the 'src' directory
-# (which contains the 'pyob' package) to the Python path.
 _current_file_dir = os.path.dirname(
     os.path.abspath(__file__)
-)  # e.g., /path/to/project_root/src/pyob
+)
 _pyob_package_root_dir = os.path.dirname(
     _current_file_dir
-)  # e.g., /path/to/project_root/src
+)
 if _pyob_package_root_dir not in sys.path:
     sys.path.insert(0, _pyob_package_root_dir)
-# --- END FIX ---
 
 from pyob.autoreviewer import AutoReviewer  # noqa: E402
 from pyob.entrance_mixins import EntranceMixin  # noqa: E402
@@ -123,10 +118,8 @@ class EntranceController(EntranceMixin):
         """Verified Hot-Reboot: Checks for syntax/import errors before restarting."""
         logger.info("PRE-FLIGHT: Verifying engine integrity before reboot...")
 
-        # Test if the new code can actually be loaded
         test_cmd = [sys.executable, "-c", "import pyob.entrance; print('SUCCESS')"]
         env = os.environ.copy()
-        # Ensure 'src' is in the path for the test
         env["PYTHONPATH"] = os.path.join(self.target_dir, "src")
 
         try:
@@ -143,7 +136,7 @@ class EntranceController(EntranceMixin):
                 logger.error(
                     f"REBOOT ABORTED: The evolved code has import/syntax errors:\n{result.stderr}"
                 )
-                self.self_evolved_flag = False  # Cancel reboot to stay alive
+                self.self_evolved_flag = False
         except Exception as e:
             logger.error(f"Pre-flight check failed: {e}")
             self.self_evolved_flag = False
@@ -250,15 +243,12 @@ class EntranceController(EntranceMixin):
 
     def _extract_path_from_llm_response(self, text: str) -> str:
         """Extracts a clean relative file path from a potentially conversational LLM response."""
-        # Remove common markdown formatting and quotes
         cleaned_text = re.sub(r"[`\"*]", "", text).strip()
         if " " in cleaned_text:
             parts = cleaned_text.split()
             for part in parts:
-                # Heuristic: check for directory separators or common file extensions
                 if "/" in part or part.endswith((".py", ".js", ".ts", ".html", ".css")):
                     return part
-            # Fallback to the first word if no specific path-like part is found
             return parts[0]
         return cleaned_text
 
@@ -368,7 +358,6 @@ class EntranceController(EntranceMixin):
             if not cmd:
                 return True
 
-            # Determine shell usage before Popen to satisfy Mypy type checker
             use_shell = bool(cmd and (cmd[0] == "start" or cmd[0] == "open"))
 
             start_time = time.time()
@@ -590,7 +579,6 @@ src/pyob/core_utils.py
             except Exception as e:
                 logger.warning(f"Failed to parse Python AST for {rel_path}: {e}")
         elif ext in [".js", ".ts"]:
-            # Improved regex to capture more JS/TS definition patterns, including export/async modifiers
             defs = re.findall(
                 r"(?:export\s+|async\s+)?(?:function\*?|class|const|var|let)\s+([a-zA-Z0-9_$]+)",
                 code,
