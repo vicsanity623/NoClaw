@@ -7,7 +7,7 @@ from pathlib import Path
 def main():
     os_name = platform.system().lower()
     project_root = Path(__file__).parent.absolute()
-    VERSION = "0.3.1"
+    VERSION = "0.3.3"
     APP_NAME = "Py-OB"
     print(f"🚀 Forging {APP_NAME} v{VERSION} for {os_name}...")
 
@@ -20,13 +20,21 @@ def main():
         "--collect-all=requests",
         "--collect-all=charset_normalizer",
         "--collect-all=chardet",
+        "--hidden-import=pyob.apply_xml_mixins",
         "--hidden-import=pyob.autoreviewer",
         "--hidden-import=pyob.core_utils",
-        "--hidden-import=pyob.prompts_and_memory",
-        "--hidden-import=pyob.reviewer_mixins",
+        "--hidden-import=pyob.dashboard_html",
         "--hidden-import=pyob.entrance",
+        "--hidden-import=pyob.entrance_mixins",
+        "--hidden-import=pyob.feature_mixins",
+        "--hidden-import=pyob.get_valid_edit",
+        "--hidden-import=pyob.models",
+        "--hidden-import=pyob.prompts_and_memory",
         "--hidden-import=pyob.pyob_code_parser",
         "--hidden-import=pyob.pyob_dashboard",
+        "--hidden-import=pyob.pyob_launcher",
+        "--hidden-import=pyob.reviewer_mixins",
+        "--hidden-import=pyob.scanner_mixins",
         "--hidden-import=ollama",
         "--hidden-import=textwrap",
         "--hidden-import=pathlib",
