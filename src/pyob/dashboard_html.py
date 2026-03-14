@@ -59,6 +59,8 @@ OBSERVER_HTML = """
         .queue-item .move-btn { background: #4a4a50; color: var(--text); }
         .queue-item .remove-btn { background: #cc0000; color: #fff; }
     </style>
+    <!-- Add Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <h1>
@@ -70,6 +72,11 @@ OBSERVER_HTML = """
             <div class="stat-item"><span class="stat-lbl">Iteration</span><span id="iteration" class="stat-val">--</span></div>
             <div class="stat-item"><span class="stat-lbl">Symbolic Ledger</span><span id="ledger" class="stat-val">--</span></div>
             <div class="stat-item"><span class="stat-lbl">Pending Cascades</span><span id="queue-count" class="stat-val">--</span></div>
+        </div>
+        <!-- Chart Container -->
+        <div class="card" style="grid-column: span 2;">
+            <div class="label">Interactive Visualization</div>
+            <canvas id="statsChart"></canvas>
         </div>
         <div class="card">
             <div class="label">Logic Memory (MEMORY.md)</div>
@@ -119,6 +126,9 @@ OBSERVER_HTML = """
                 document.getElementById('memory').value = data.memory || "Brain empty.";
                 document.getElementById('history').innerText = data.history || "No logs.";
                 document.getElementById('analysis').innerText = data.analysis || "Parsing...";
+
+                // Update chart after fetching data
+                updateChart(data);
 
                 const queueDiv = document.getElementById('queue');
                 queueDiv.innerHTML = '';
@@ -261,6 +271,37 @@ OBSERVER_HTML = """
 
         setInterval(updateStats, 3000);
         updateStats();
+
+        function updateChart(data) {
+            const ctx = document.getElementById('statsChart').getContext('2d');
+            const iterationData = data.iterationHistory ? data.iterationHistory.map((val, index) => { return { x: index, y: val }; }) : [];
+
+            if (window.statsChart) {
+                window.statsChart.data.labels = iterationData.map(d => d.x);
+                window.statsChart.data.datasets[0].data = iterationData.map(d => d.y);
+                window.statsChart.update();
+            } else {
+                window.statsChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: iterationData.map(d => d.x),
+                        datasets: [{
+                            label: 'Iterations Over Time',
+                            data: iterationData.map(d => d.y),
+                            borderColor: 'rgb(75, 192, 192)',
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+        }
     </script>
 </body>
 </html>
