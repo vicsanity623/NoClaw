@@ -125,6 +125,47 @@ class CoreUtilsMixin:
     target_dir: str
     memory_file: str
     key_cooldowns: dict[str, float]
+    
+    def generate_pr_summary(self, rel_path: str, diff_text: str) -> dict:
+        """Analyzes a git diff and returns a professional title and body for the PR."""
+        prompt = f"""
+        Analyze the following git diff for file `{rel_path}` and write a professional, high-quality PR title and description.
+        
+        RULES:
+        1. PR Title: Start with a category (e.g., "Refactor:", "Feature:", "Fix:", "Security:") followed by a concise summary.
+        2. PR Body: Use professional markdown. Include sections for 'Summary of Changes' and 'Technical Impact'.
+        3. NO TIMESTAMPS: Do not mention the time or date.
+        4. INTENT: Focus on why the change improves the architecture or stability.
+        
+        GIT DIFF:
+        {diff_text}
+        
+        OUTPUT FORMAT (STRICT JSON):
+        {{
+          "title": "Category: Brief Summary",
+          "body": "### Summary of Changes\\n- bullet points...\\n\\n### Technical Impact\\n- impact details..."
+        }}
+        """
+        
+        try:
+            # We use the existing get_valid_llm_response_engine directly to avoid recursion
+            from .models import get_valid_llm_response_engine
+            response = get_valid_llm_response_engine(
+                prompt, 
+                lambda t: '"title":' in t and '"body":' in t, 
+                self.key_cooldowns, 
+                context="PR Architect"
+            )
+            
+            # Extract JSON from potential markdown blocks
+            clean_json = re.sub(r"^```json\s*|\s*```$", "", response.strip(), flags=re.MULTILINE)
+            return json.loads(clean_json)
+        except Exception as e:
+            logger.warning(f"Failed to generate AI summary: {e}")
+            return {
+                "title": f"Evolution: Refactor of `{rel_path}`",
+                "body": f"Automated self-evolution update for `{rel_path}`. Verified stable via runtime testing."
+            }
 
     def stream_gemini(
         self, prompt: str, api_key: str, on_chunk: Callable[[], None]
