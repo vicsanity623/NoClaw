@@ -14,8 +14,9 @@ class GetValidEditMixin:
         require_edit: bool = True,
         target_filepath: str = "",
     ) -> tuple[str, str, str]:
+        base_dir = getattr(self, "target_dir", os.getcwd())
         display_name = (
-            os.path.relpath(target_filepath, getattr(self, "target_dir"))
+            os.path.relpath(target_filepath, base_dir)
             if target_filepath
             else "System Update"
         )
