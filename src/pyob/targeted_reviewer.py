@@ -1,6 +1,8 @@
 import os
+
 from .apply_xml_mixins import ApplyXMLMixin
 from .autoreviewer import AutoReviewer
+
 
 class TargetedReviewer(AutoReviewer, ApplyXMLMixin):
     def __init__(self, target_dir: str, target_file: str):
