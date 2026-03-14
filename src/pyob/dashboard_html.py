@@ -139,9 +139,9 @@ OBSERVER_HTML = """
                         itemElement.innerHTML = `
                             <span style="flex-grow: 1;">${item}</span>
                             <div style="display: flex; gap: 5px;">
-                                <button class="move-btn" onclick="moveQueueItem('${item}', 'up')">&#x25B2;</button>
-                                <button class="move-btn" onclick="moveQueueItem('${item}', 'down')">&#x25BC;</button>
-                                <button class="remove-btn" onclick="removeQueueItem('${item}')">X</button>
+                                <button class="move-btn" onclick="moveQueueItem(decodeURIComponent('${encodeURIComponent(item)}'), 'up')">&#x25B2;</button>
+                                <button class="move-btn" onclick="moveQueueItem(decodeURIComponent('${encodeURIComponent(item)}'), 'down')">&#x25BC;</button>
+                                <button class="remove-btn" onclick="removeQueueItem(decodeURIComponent('${encodeURIComponent(item)}'))">X</button>
                             </div>
                         `;
                         queueDiv.appendChild(itemElement);
