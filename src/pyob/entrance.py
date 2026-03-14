@@ -46,8 +46,6 @@ def load_config() -> dict:
                     config.update(file_config)  # Merge, later files override earlier
             except json.JSONDecodeError as e:
                 logger.warning(f"WARNING: Could not parse config.json at {path}: {e}")
-            except FileNotFoundError:
-                pass  # Already checked os.path.exists, so this shouldn't happen
 
     # Environment variable overrides config.json value
     gemini_key_env = os.environ.get("GEMINI_API_KEY")
@@ -63,7 +61,6 @@ def load_config() -> dict:
             "Please set the GEMINI_API_KEY environment variable to proceed."
         )
         sys.exit(1)
-    config["gemini_api_key"] = gemini_key
     return config
 
 
