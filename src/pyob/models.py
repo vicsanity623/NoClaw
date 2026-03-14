@@ -127,7 +127,7 @@ def stream_github_models(
 
     try:
         response = requests.post(
-            endpoint, headers=headers, json=json.dumps(data), stream=True, timeout=120
+            endpoint, headers=headers, json=data, stream=True, timeout=120
         )
 
         for line in response.iter_lines():
