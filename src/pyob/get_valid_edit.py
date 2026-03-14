@@ -90,7 +90,9 @@ class GetValidEditMixin:
         self, prompt: str, display_name: str, attempts: int
     ) -> tuple[str, int]:
         is_cloud = (
-            os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true"
+            os.environ.get("GITHUB_ACTIONS") == "true"
+            or os.environ.get("CI") == "true"
+            or "GITHUB_RUN_ID" in os.environ
         )
         key_cooldowns = getattr(self, "key_cooldowns", {})
 
@@ -128,15 +130,15 @@ class GetValidEditMixin:
                     prompt, key=None, context=display_name, gh_model=gh_model
                 )
             else:
-                logger.info("\n[Attempting Local Ollama]")
+                logger.info("\n[All keys exhausted. Falling back to Local Ollama]")
                 response = getattr(self, "_stream_single_llm")(
                     prompt, key=None, context=display_name
                 )
 
             if response.startswith("ERROR_CODE_429"):
                 if key:
-                    key_cooldowns[key] = time.time() + 60
-                    logger.warning("Key rate limited. Rotating instantly...")
+                    key_cooldowns[key] = time.time() + 120
+                    logger.warning("Key rate limited. Pivoting to next key...")
                     attempts += 1
                     continue
                 elif "RateLimitReached" in response:
@@ -165,6 +167,15 @@ class GetValidEditMixin:
                 continue
 
             if response.startswith("ERROR_CODE_") or not response.strip():
+                if key and not ("429" in (response or "")):
+                    key_cooldowns[key] = time.time() + 10
+                
+                if available_keys:
+                    logger.warning(f"Engine failed with error: {str(response)[:60]}... Rotating...")
+                    attempts += 1
+                    time.sleep(2)
+                    continue
+                
                 logger.warning("API Error or Empty Response. Sleeping 60s...")
                 time.sleep(60)
                 attempts += 1
