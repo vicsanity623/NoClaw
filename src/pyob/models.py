@@ -293,7 +293,9 @@ def get_valid_llm_response_engine(
                     prompt, key=None, context=context, gh_model="Llama-3"
                 )
         else:
-            logger.info(" All Gemini keys exhausted. Falling back to Local Ollama Engine...")
+            logger.info(
+                " All Gemini keys exhausted. Falling back to Local Ollama Engine..."
+            )
             response_text = stream_single_llm(prompt, key=None, context=context)
 
         # --- ERROR HANDLING BLOCK ---
@@ -354,10 +356,14 @@ def get_valid_llm_response_engine(
             # 4. Final Catch-All / Fail-Safe Sleep
             if not response_text or response_text.startswith("ERROR_CODE_"):
                 if key and "429" not in (response_text or ""):
-                    key_cooldowns[key] = time.time() + 10  # Short cooldown for unknown errors prevent tight loops
+                    key_cooldowns[key] = (
+                        time.time() + 10
+                    )  # Short cooldown for unknown errors prevent tight loops
 
                 if available_keys:
-                    logger.warning(f"Engine failed with error: {str(response_text)[:60]}... Rotating...")
+                    logger.warning(
+                        f"Engine failed with error: {str(response_text)[:60]}... Rotating..."
+                    )
                     attempts += 1
                     time.sleep(2)
                     continue
