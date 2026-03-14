@@ -177,7 +177,7 @@ class EntranceController(EntranceMixin):
             try:
                 with open(self.symbols_path, "r") as f:
                     return json.load(f)
-            except Exception as e:
+            except (FileNotFoundError, json.JSONDecodeError) as e:
                 logger.warning(
                     f"Failed to load SYMBOLS.json, initializing empty ledger: {e}"
                 )

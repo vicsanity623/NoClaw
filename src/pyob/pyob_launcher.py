@@ -26,10 +26,6 @@ def load_config():
                 f"Warning: Configuration file {CONFIG_FILE} is invalid or inaccessible ({e}). Re-creating."
             )
             CONFIG_FILE.unlink(missing_ok=True)  # Delete invalid file
-        except Exception as e:
-            print(
-                f"Warning: An unexpected error occurred while loading config ({e}). Re-creating."
-            )
 
     # 2. Check for Environment Variables (Ensures it works in GitHub Actions/Docker)
     env_keys = os.environ.get("PYOB_GEMINI_KEYS")
