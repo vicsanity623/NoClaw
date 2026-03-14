@@ -35,7 +35,7 @@ PYOB_DATA_DIR = ".pyob"
 IGNORE_DIRS = {
     ".git",
     ".github",
-    ".pyob",
+    # ".pyob",
     "autovenv",
     "build_env",
     "pyob.egg-info",
