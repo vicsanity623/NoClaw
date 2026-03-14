@@ -114,7 +114,6 @@ def main():
 
     from pyob.entrance import EntranceController
 
-    target_dir = ""
     if len(sys.argv) > 1:
         arg = sys.argv[1]
         # Filter out internal macOS process paths
