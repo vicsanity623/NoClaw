@@ -211,8 +211,12 @@ class CoreUtilsMixin:
             finally:
                 termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
-    def _launch_external_code_editor(
-        self, initial_content: str, file_suffix: str = ".py"
+    def _open_editor_for_content(
+        self,
+        initial_content: str,
+        file_suffix: str = ".txt",
+        log_message: str = "Opening editor",
+        error_message: str = "Using original content.",
     ) -> str:
         import tempfile
 
@@ -222,55 +226,41 @@ class CoreUtilsMixin:
         ) as tmp_file:
             tmp_file.write(initial_content)
             tmp_file_path = tmp_file.name
-        logger.info(f"Opening prompt augmentation editor: {editor} {tmp_file_path}")
-        logger.info(
-            "Add your additional instructions/context. Save and close the file to continue."
-        )
+        logger.info(f"{log_message}: {editor} {tmp_file_path}")
         try:
             subprocess.run([editor, tmp_file_path], check=True)
             with open(tmp_file_path, "r", encoding="utf-8") as f:
                 edited_content = f.read()
             return edited_content
         except FileNotFoundError:
-            logger.error(f"Editor '{editor}' not found. Using original content.")
+            logger.error(f"Editor '{editor}' not found. {error_message}")
             return initial_content
         except subprocess.CalledProcessError:
-            logger.error(
-                f"Editor '{editor}' exited with an error. Using original content."
-            )
+            logger.error(f"Editor '{editor}' exited with an error. {error_message}")
+            return initial_content
+        except Exception:
+            logger.error(f"An unexpected error occurred with editor. {error_message}")
             return initial_content
         finally:
             if os.path.exists(tmp_file_path):
                 os.remove(tmp_file_path)
 
-    def _edit_prompt_with_external_editor(self, initial_prompt: str) -> str:
-        import tempfile
-
-        editor = os.environ.get("EDITOR", "nano")
-        with tempfile.NamedTemporaryFile(
-            mode="w+", delete=False, encoding="utf-8"
-        ) as tmp_file:
-            tmp_file.write(initial_prompt)
-            tmp_file_path = tmp_file.name
-        logger.info(f"Opening prompt in editor: {editor} {tmp_file_path}")
-        logger.info(
-            "Save and close the file to continue. (e.g., Ctrl+X, then Y, then Enter for nano)"
+    def _launch_external_code_editor(
+        self, initial_content: str, file_suffix: str = ".py"
+    ) -> str:
+        return self._open_editor_for_content(
+            initial_content,
+            file_suffix,
+            log_message="Opening prompt augmentation editor",
+            error_message="Using original content.",
         )
-        try:
-            subprocess.run([editor, tmp_file_path], check=True)
-            with open(tmp_file_path, "r", encoding="utf-8") as f:
-                edited_prompt = f.read()
-            return edited_prompt
-        except FileNotFoundError:
-            logger.error(f"Editor '{editor}' not found. Using original prompt.")
-            return initial_prompt
-        except subprocess.CalledProcessError:
-            logger.error(
-                f"Editor '{editor}' exited with an error. Using original prompt."
-            )
-            return initial_prompt
-        finally:
-            os.remove(tmp_file_path)
+
+    def _edit_prompt_with_external_editor(self, initial_prompt: str) -> str:
+        return self._open_editor_for_content(
+            initial_prompt,
+            log_message="Opening prompt in editor",
+            error_message="Using original prompt.",
+        )
 
     def backup_workspace(self) -> dict[str, str]:
         state: dict[str, str] = {}
