@@ -54,7 +54,7 @@ IGNORE_DIRS = {
     "node_modules",
     ".vscode",
     ".idea",
-    "tests"'
+    "tests",
 }
 
 IGNORE_FILES = {
