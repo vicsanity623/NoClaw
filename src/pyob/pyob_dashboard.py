@@ -13,6 +13,7 @@ class ObserverHandler(BaseHTTPRequestHandler):
     def _send_controller_not_initialized_error(self):
         self.send_response(503)  # Service Unavailable
         self.send_header("Content-type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(json.dumps({"error": "Controller not initialized"}).encode())
 
