@@ -434,7 +434,14 @@ class EntranceController(EntranceMixin):
                 cmd = (
                     ["open", entry_file]
                     if sys.platform == "darwin"
-                    else ["start", entry_file]
+                    else (
+                        [f'start "" "{entry_file}"']
+                        if sys.platform == "win32"
+                        else [
+                            "xdg-open",
+                            entry_file,
+                        ]  # Default for other OS, e.g., Linux
+                    )
                 )
 
             if not cmd:
