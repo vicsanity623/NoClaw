@@ -200,7 +200,8 @@ class AutoReviewer(
                             os.remove(self.pr_file)
 
                         if os.path.exists(self.feature_file):
-                            content = open(self.feature_file).read()
+                            with open(self.feature_file, "r", encoding="utf-8") as f:
+                                content = f.read()
                             with open(self.failed_feature_file, "w") as f:
                                 f.write(content + failure_report)
                             os.remove(self.feature_file)
