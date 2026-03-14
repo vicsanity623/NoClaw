@@ -16,7 +16,27 @@ DEFAULT_LOCAL_MODEL = "qwen3-coder:30b"
 
 def load_config():
     """Load config from file or environment, or prompt user if missing."""
-    # 1. Try loading from the local configuration file first
+    # 1. Check for Environment Variables (Ensures it works in GitHub Actions/Docker)
+    #    This takes highest priority as per "Override by PYOB_GEMINI_KEYS" rule.
+    env_keys = os.environ.get("PYOB_GEMINI_KEYS")
+    if env_keys:
+        return {
+            "gemini_keys": env_keys,
+            "gemini_model": os.environ.get("PYOB_GEMINI_MODEL", DEFAULT_GEMINI_MODEL),
+            "local_model": os.environ.get("PYOB_LOCAL_MODEL", DEFAULT_LOCAL_MODEL),
+        }
+
+    # 1. Check for Environment Variables (Ensures it works in GitHub Actions/Docker)
+    #    This takes highest priority as per "Override by PYOB_GEMINI_KEYS" rule.
+    env_keys = os.environ.get("PYOB_GEMINI_KEYS")
+    if env_keys:
+        return {
+            "gemini_keys": env_keys,
+            "gemini_model": os.environ.get("PYOB_GEMINI_MODEL", DEFAULT_GEMINI_MODEL),
+            "local_model": os.environ.get("PYOB_LOCAL_MODEL", DEFAULT_LOCAL_MODEL),
+        }
+
+    # 2. Try loading from the local configuration file
     if CONFIG_FILE.exists():
         try:
             with open(CONFIG_FILE, "r") as f:
