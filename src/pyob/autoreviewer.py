@@ -157,8 +157,6 @@ class AutoReviewer(
         )
 
     def run_pipeline(self, current_iteration: int):
-        if not self.session_context:
-            self.session_context = []
         changes_made = False
         try:
             if os.path.exists(self.pr_file) or os.path.exists(self.feature_file):
