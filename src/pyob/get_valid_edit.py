@@ -116,7 +116,7 @@ class GetValidEditMixin:
                 if now < key_cooldowns.get("github_llama", 0):
                     gh_model = "Phi-4"
                 if gh_model == "Phi-4" and now < key_cooldowns.get("github_phi", 0):
-                    wait = 60
+                    wait = 120
                     logger.warning(
                         f"All API limits exhausted. Sleeping {wait}s for Gemini refill..."
                     )
@@ -138,13 +138,11 @@ class GetValidEditMixin:
 
             if response.startswith("ERROR_CODE_429"):
                 if key:
-                    key_cooldowns[key] = time.time() + 120
+                    key_cooldowns[key] = time.time() + 180
                     logger.warning("Key rate limited. Pivoting to next key...")
                     attempts += 1
                     continue
                 elif "RateLimitReached" in response:
-                    import re
-
                     match = re.search(r"wait (\d+) seconds", response)
                     wait_time = int(match.group(1)) if match else 86400
                     if gh_model == "Llama-3":
@@ -152,35 +150,35 @@ class GetValidEditMixin:
                     else:
                         key_cooldowns["github_phi"] = time.time() + wait_time + 60
                     logger.error(
-                        f"GITHUB QUOTA REACHED ({gh_model}). Cooldown: {wait_time}s"
+                        f" GITHUB QUOTA REACHED ({gh_model}). Cooldown: {wait_time}s"
                     )
                     attempts += 1
                     continue
                 else:
-                    time.sleep(60)
+                    time.sleep(120)
                     attempts += 1
                     continue
 
             if "ERROR_CODE_413" in response:
-                logger.warning("Payload too large (413). Backing off 60s...")
-                time.sleep(60)
+                logger.warning("Payload too large (413). Backing off 120s...")
+                time.sleep(120)
                 attempts += 1
                 continue
 
             if response.startswith("ERROR_CODE_") or not response.strip():
                 if key and "429" not in (response or ""):
-                    key_cooldowns[key] = time.time() + 10
+                    key_cooldowns[key] = time.time() + 30
 
                 if available_keys:
                     logger.warning(
                         f"Engine failed with error: {str(response)[:60]}... Rotating..."
                     )
                     attempts += 1
-                    time.sleep(2)
+                    time.sleep(5)
                     continue
 
-                logger.warning("API Error or Empty Response. Sleeping 60s...")
-                time.sleep(60)
+                logger.warning("API Error or Empty Response. Sleeping 120s...")
+                time.sleep(120)
                 attempts += 1
                 continue
 
