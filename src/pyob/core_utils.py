@@ -143,8 +143,6 @@ class CoreUtilsMixin:
         """
 
         try:
-            from .models import get_valid_llm_response_engine
-
             response = get_valid_llm_response_engine(
                 prompt,
                 lambda t: '"title":' in t and '"body":' in t,
