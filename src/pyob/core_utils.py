@@ -143,10 +143,9 @@ class CoreUtilsMixin:
         """
 
         try:
-            response = get_valid_llm_response_engine(
+            response = self.get_valid_llm_response(
                 prompt,
                 lambda t: '"title":' in t and '"body":' in t,
-                self.key_cooldowns,
                 context="PR Architect",
             )
 
@@ -346,6 +345,7 @@ class CoreUtilsMixin:
     def get_valid_llm_response(
         self, prompt: str, validator: Callable[[str], bool], context: str = ""
     ) -> str:
+        """Wrapper that ensures key rotation is used for all requests."""
         return str(
             get_valid_llm_response_engine(
                 prompt, validator, self.key_cooldowns, context
