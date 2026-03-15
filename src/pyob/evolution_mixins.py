@@ -87,9 +87,12 @@ class EvolutionMixin:
             elif is_html:
                 if os.environ.get("GITHUB_ACTIONS") == "true":
                     return True
-                if sys.platform == "darwin": cmd = ["open", entry_file]
-                elif sys.platform == "win32": cmd = [f'start "" "{entry_file}"']
-                else: cmd = ["xdg-open", entry_file]
+                if sys.platform == "darwin":
+                    cmd = ["open", entry_file]
+                elif sys.platform == "win32":
+                    cmd = [f'start "" "{entry_file}"']
+                else:
+                    cmd = ["xdg-open", entry_file]
 
             if not cmd:
                 return True
@@ -104,7 +107,8 @@ class EvolutionMixin:
                         if process.returncode == 0:
                             return True
                     except subprocess.TimeoutExpired:
-                        process.terminate(); process.wait()
+                        process.terminate();
+                        process.wait()
                         return True
                 stdout, stderr = process.communicate(timeout=10)
             except Exception as e:
