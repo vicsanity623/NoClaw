@@ -239,6 +239,25 @@ OBSERVER_HTML = """
             } catch (e) { document.getElementById('status-pill').innerText = "OFFLINE"; console.error("Error updating stats:", e); }
         }
 
+        async function acknowledgeIssue(issueId) {
+            try {
+                const response = await fetch(`/api/acknowledge-issue/${issueId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'acknowledged' })
+                });
+                if (response.ok) {
+                    await updateStats(); // Refresh dashboard to show updated status
+                } else {
+                    console.error(`Failed to acknowledge issue ${issueId}:`, await response.text());
+                    alert('Error acknowledging issue.');
+                }
+            } catch (e) {
+                console.error(`Failed to acknowledge issue ${issueId}:`, e);
+                alert('Network error acknowledging issue.');
+            }
+        }
+
         async function setManualTarget() {
             const targetFile = document.getElementById('manualTargetFile').value;
             if (!targetFile) return;
