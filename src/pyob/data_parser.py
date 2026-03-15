@@ -11,7 +11,7 @@ class DataParser:
                 data.append({"key": match.group(1), "value": int(match.group(2))})
         return {"data": data}
 
-    def parse_history_content(self, content):
+    def parse_history_content(self, content: str) -> dict:
         # Implement logic to parse the history content into structured data
         data = []
         for line in content.splitlines():
