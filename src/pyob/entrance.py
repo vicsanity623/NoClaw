@@ -276,6 +276,11 @@ class EntranceController(EntranceMixin, CoreUtilsMixin):
                 )
         return {"definitions": {}, "references": {}}
 
+    def save_ledger(self):
+        """Saves the current symbolic ledger back to disk."""
+        with open(self.symbols_path, "w", encoding="utf-8") as f:
+            json.dump(self.ledger, f, indent=2)
+
     def run_master_loop(self):
         logger.info(
             "\n" + "=" * 60 + "\nENTRANCE CONTROLLER: SYMBOLIC MODE ACTIVE\n" + "=" * 60
