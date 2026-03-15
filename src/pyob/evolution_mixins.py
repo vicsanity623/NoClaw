@@ -85,12 +85,14 @@ class EvolutionMixin:
             elif is_js:
                 cmd = ["npm", "start"] if entry_file.endswith("package.json") else ["node", entry_file]
             elif is_html:
-                if os.environ.get("GITHUB_ACTIONS") == "true": return True
+                if os.environ.get("GITHUB_ACTIONS") == "true":
+                    return True
                 if sys.platform == "darwin": cmd = ["open", entry_file]
                 elif sys.platform == "win32": cmd = [f'start "" "{entry_file}"']
                 else: cmd = ["xdg-open", entry_file]
 
-            if not cmd: return True
+            if not cmd:
+                return True
             use_shell = bool(cmd and (cmd[0].startswith("start") or cmd[0] == "open"))
 
             start_time = time.time()
@@ -99,7 +101,8 @@ class EvolutionMixin:
                 if is_html:
                     try:
                         stdout, stderr = process.communicate(timeout=5)
-                        if process.returncode == 0: return True
+                        if process.returncode == 0:
+                            return True
                     except subprocess.TimeoutExpired:
                         process.terminate(); process.wait()
                         return True
@@ -131,7 +134,8 @@ class EvolutionMixin:
         for line in reversed(history.strip().split("\n")):
             if line.startswith("## "):
                 match = re.search(r"`([^`]+)`", line)
-                if match: last_file = match.group(1); break
+                if match: last_file = match.group(1);
+                    break
 
         prompt = f"Choose ONE relative file path to review next based on ANALYSIS.md/HISTORY.md.\nSTRATEGIC RULES:\n1. DO NOT pick `{last_file}`.\n2. Rotate between logic, UI, and styles.\nOutput ONLY the path.\n\n### Analysis:\n{analysis}\n### History:\n{history}"
         
