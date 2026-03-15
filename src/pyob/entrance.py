@@ -70,9 +70,11 @@ class EntranceController(EntranceMixin, CoreUtilsMixin):
     ENGINE_FILES = [
         "apply_xml_mixins.py",
         "autoreviewer.py",
+        "cascade_queue_handler.py",
         "core_utils.py",
         "dashboard_html.py",
         "dashboard_server.py",
+        "data_parser.py",
         "entrance.py",
         "entrance_mixins.py",
         "feature_mixins.py",
@@ -83,6 +85,7 @@ class EntranceController(EntranceMixin, CoreUtilsMixin):
         "pyob_launcher.py",
         "reviewer_mixins.py",
         "scanner_mixins.py",
+        "stats_updater.py",
         "get_valid_edit.py",
         "targeted_reviewer.py",
     ]
