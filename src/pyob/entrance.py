@@ -69,7 +69,6 @@ def load_config() -> dict:
 
 class EntranceController(EntranceMixin, CoreUtilsMixin, EvolutionMixin):
     ENGINE_FILES = [
-        "apply_xml_mixins.py",
         "autoreviewer.py",
         "cascade_queue_handler.py",
         "core_utils.py",
