@@ -118,8 +118,7 @@ class AutoReviewer(
             pass
         try:
             res = subprocess.run(["mypy", filepath], capture_output=True, text=True)
-            if res.returncode != 0:
-                mypy_out = res.stdout.strip()
+            mypy_out = res.stdout.strip()
         except FileNotFoundError:
             pass
         return ruff_out, mypy_out
