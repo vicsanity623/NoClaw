@@ -288,14 +288,29 @@ class EntranceController(EntranceMixin, CoreUtilsMixin, EvolutionMixin):
         logger.info(
             "\n" + "=" * 60 + "\nENTRANCE CONTROLLER: SYMBOLIC MODE ACTIVE\n" + "=" * 60
         )
-        if not os.path.exists(self.analysis_path):
-            self.build_initial_analysis()
-
         iteration = 1
         while True:
             self.current_iteration = iteration
             self.self_evolved_flag = False
 
+            # --- CONTINUOUS EVOLUTION REFRESH ---
+            # Every iteration, we wipe the bot's 'Short-Term Memory' so it 
+            # re-scans the files. This allows Iteration 2 to 'see' the 
+            # changes made in Iteration 1, even if they are on a PR branch.
+            logger.info(f"--- REFRESHING SYMBOLIC CONTEXT FOR ITERATION {iteration} ---")
+            
+            # 1. Clear the derived project map files
+            if os.path.exists(self.analysis_path):
+                os.remove(self.analysis_path)
+            if os.path.exists(self.symbols_path):
+                os.remove(self.symbols_path)
+
+            # 2. Perform a Fresh Genesis Scan of the current filesystem state.
+            # This ensures the bot's analysis is never 'stale'.
+            self.build_initial_analysis()
+            # ------------------------------------
+
+            # Check if main branch has been updated by the user (manual merges)
             if self.sync_with_remote():
                 res = subprocess.run(
                     ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"],
@@ -310,6 +325,7 @@ class EntranceController(EntranceMixin, CoreUtilsMixin, EvolutionMixin):
                     )
                     self.self_evolved_flag = True
 
+            # If the engine itself was modified, reboot to load new logic
             if self.self_evolved_flag:
                 if getattr(sys, "frozen", False):
                     logger.warning("COMPILED ENGINE EVOLVED: Initiating Forge Build.")
