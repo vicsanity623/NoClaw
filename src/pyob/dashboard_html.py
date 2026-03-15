@@ -209,11 +209,10 @@ OBSERVER_HTML = """
                         patchElement.style.marginBottom = '10px';
                         patchElement.innerHTML = `
                             <span style="color: var(--accent); font-weight: 700;">Patch ID: ${patch.id}</span><br>
-                            <span style="font-size: 0.8em; color: var(--dim);">File: ${patch.target_file}</span><br>
-                            <span style="font-size: 0.8em; color: var(--dim);">Description: ${patch.description || 'N/A'}</span><br>
-<button onclick="viewPatchDiff('${patch.id}')" style="width: 23%; margin-right: 2%; background: #007bff; color: #fff;">VIEW DIFF</button>
-<button onclick="reviewPatch('${patch.id}', 'approve')" style="width: 23%; margin-right: 2%; background: #00cc66; color: #000;">APPROVE</button>
-<button onclick="reviewPatch('${patch.id}', 'approved')" style="width: 23%; margin-right: 2%; background: #00cc00; color: #000;">APPROVED</button>
+                            <span class="patch-file" style="font-size: 0.8em; color: var(--dim);"></span><br>
+                            <span class="patch-description" style="font-size: 0.8em; color: var(--dim);"></span><br>
+<button onclick="viewPatchDiff('${patch.id}')" style="width: 31%; margin-right: 2%; background: #007bff; color: #fff;">VIEW DIFF</button>
+<button onclick="reviewPatch('${patch.id}', 'approved')" style="width: 31%; margin-right: 2%; background: #00cc00; color: #000;">APPROVE</button>
 <button onclick="reviewPatch('${patch.id}', 'reject')" style="width: 23%; background: #cc0000; color: #fff;">REJECT</button>
                         `;
                         patchesDiv.appendChild(patchElement);
