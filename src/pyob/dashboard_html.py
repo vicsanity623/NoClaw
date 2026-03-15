@@ -134,7 +134,61 @@ OBSERVER_HTML = """
                 pill.className = isEvolving ? "status-pill evolving" : "status-pill";
                 document.getElementById('memory').value = data.memory || "Brain empty.";
                 document.getElementById('history').innerText = data.history || "No logs.";
-                document.getElementById('analysis').innerText = data.analysis || "Parsing...";
+                // Handle structured analysis data for interactive issues
+                const analysisContainer = document.getElementById('analysis');
+                analysisContainer.innerHTML = ''; // Clear existing content
+
+                // The acknowledgeIssue function is now defined globally below updateStats.
+                // No local definition needed here.
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: 'acknowledged' })
+                        });
+                        if (response.ok) {
+                            await updateStats(); // Refresh dashboard to show updated status
+                        } else {
+                            console.error(`Failed to acknowledge issue ${issueId}:`, await response.text());
+                            alert('Error acknowledging issue.');
+                        }
+                    } catch (e) {
+                        console.error(`Failed to acknowledge issue ${issueId}:`, e);
+                        alert('Network error acknowledging issue.');
+                    }
+                }
+
+                if (Array.isArray(data.analysis) && data.analysis.length > 0) {
+                    data.analysis.forEach(issue => {
+                        const issueElement = document.createElement('div');
+                        issueElement.style.marginBottom = '8px';
+                        issueElement.style.padding = '8px';
+                        issueElement.style.background = '#00000066';
+                        issueElement.style.borderRadius = '4px';
+                        issueElement.style.display = 'flex';
+                        issueElement.style.alignItems = 'center';
+                        issueElement.style.justifyContent = 'space-between';
+                        issueElement.style.fontFamily = 'JetBrains Mono';
+                        issueElement.style.fontSize = '0.8em';
+                        issueElement.style.color = '#ced4e0';
+
+                        const statusColor = issue.status === 'acknowledged' ? 'var(--dim)' : 'var(--err)';
+                        const statusText = issue.status === 'acknowledged' ? 'ACKNOWLEDGED' : 'PENDING';
+
+                        issueElement.innerHTML = `
+                            <span style="flex-grow: 1;">${issue.description}</span>
+                            <span style="font-size: 0.7em; font-weight: 600; color: ${statusColor}; margin-left: 10px;">${statusText}</span>
+                            <button onclick="acknowledgeIssue('${issue.id}')"
+                                    style="width: auto; padding: 5px 10px; font-size: 0.7em; border-radius: 3px; margin-left: 10px;
+                                           background: ${issue.status === 'acknowledged' ? '#4a4a50' : 'var(--accent)'};
+                                           color: ${issue.status === 'acknowledged' ? 'var(--text)' : '#000'};"
+                                    ${issue.status === 'acknowledged' ? 'disabled' : ''}>
+                                ${issue.status === 'acknowledged' ? 'ACKNOWLEDGE'}
+                            </button>
+                        `;
+                        analysisContainer.appendChild(issueElement);
+                    });
+                } else {
+                    analysisContainer.innerText = data.analysis || "No issues found."; // Fallback if not array or empty
+                }
 
                 // Update chart after fetching data
                 updateChart(data);
@@ -183,6 +237,25 @@ OBSERVER_HTML = """
 
                 await updatePendingPatches();
             } catch (e) { document.getElementById('status-pill').innerText = "OFFLINE"; console.error("Error updating stats:", e); }
+        }
+
+        async function acknowledgeIssue(issueId) {
+            try {
+                const response = await fetch(`/api/acknowledge-issue/${issueId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'acknowledged' })
+                });
+                if (response.ok) {
+                    await updateStats(); // Refresh dashboard to show updated status
+                } else {
+                    console.error(`Failed to acknowledge issue ${issueId}:`, await response.text());
+                    alert('Error acknowledging issue.');
+                }
+            } catch (e) {
+                console.error(`Failed to acknowledge issue ${issueId}:`, e);
+                alert('Network error acknowledging issue.');
+            }
         }
 
         async function setManualTarget() {
