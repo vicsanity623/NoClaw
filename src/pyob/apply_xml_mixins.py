@@ -232,7 +232,9 @@ class ApplyXMLMixin:
                     break
             if match:
                 new_code_lines = (
-                    code_lines[:i] + replace_lines + code_lines[i + len(search_lines) :]
+                    code_lines[:i]
+                    + replace_lines
+                    + code_lines[i + len(search_lines_stripped) :]
                 )
                 new_code = "\n".join(new_code_lines)
                 if not new_code.endswith("\n") and source.endswith("\n"):
