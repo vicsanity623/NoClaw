@@ -4,8 +4,6 @@ import re
 from .core_utils import logger
 
 
-# This class is being moved to `xml_mixin.py` in an architectural split.
-# It will be removed from this file in a subsequent turn.
 class ApplyXMLMixin:
     def ensure_imports_retained(
         self, orig_code: str, new_code: str, filepath: str
