@@ -29,8 +29,7 @@ def analysis():
 @app.route("/history")
 def history():
     try:
-        with open("HISTORY.md", "r", encoding="utf-8") as f:
-            history_content = f.read()
+        history_content = read_file("HISTORY.md")
         return jsonify({"success": True, "data": history_content})
     except FileNotFoundError:
         return jsonify({"success": False, "message": "History not available"}), 404
