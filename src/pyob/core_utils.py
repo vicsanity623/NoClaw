@@ -143,7 +143,6 @@ class CoreUtilsMixin:
         """
 
         try:
-            # THE FIX: Use the class wrapper to ensure key rotation triggers
             response = self.get_valid_llm_response(
                 prompt,
                 lambda t: '"title":' in t and '"body":' in t,
@@ -349,11 +348,10 @@ class CoreUtilsMixin:
         """Wrapper that ensures key rotation is used for all requests."""
         return str(
             get_valid_llm_response_engine(
-                prompt,
-                validator,
-                GEMINI_API_KEYS,  # THE FIX: Explicitly pass the list of 8 keys
-                self.key_cooldowns,
-                context,
+                prompt, 
+                validator, 
+                self.key_cooldowns, 
+                context
             )
         )
 
