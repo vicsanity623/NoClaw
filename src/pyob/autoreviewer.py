@@ -268,7 +268,7 @@ class AutoReviewer(
                                 " Rollback performed due to unfixable errors."
                             )
 
-                            failure_report = f"\n\n###  FAILURE ATTEMPT LOGS ({time.strftime('%Y-%m-%d %H:%M:%S')})\n"
+                            failure_report = f"\n\n### FAILURE ATTEMPT LOGS ({time.strftime('%Y-%m-%d %H:%M:%S')})\n"
                             failure_report += "\n".join(self.session_context[-3:])
 
                             if os.path.exists(self.pr_file):
