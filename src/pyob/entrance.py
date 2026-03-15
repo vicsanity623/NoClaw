@@ -76,6 +76,7 @@ class EntranceController(EntranceMixin, CoreUtilsMixin, EvolutionMixin):
         "dashboard_server.py",
         "entrance.py",
         "entrance_mixins.py",
+        "evolution_mixins.py",
         "feature_mixins.py",
         "models.py",
         "prompts_and_memory.py",
