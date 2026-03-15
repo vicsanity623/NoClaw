@@ -4,7 +4,21 @@ import re
 from pyob.core_utils import logger
 
 
-class PromptsAndMemoryMixin:
+class SearchAndFilterMixin:
+    def __init__(self):
+        self.search_query = ""
+        self.filter_date = ""
+
+    def handle_search(self, search_query):
+        self.search_query = search_query
+        # Call the data_parser to filter the memory entries based on the search query
+
+    def handle_filter(self, filter_date):
+        self.filter_date = filter_date
+        # Call the data_parser to filter the memory entries based on the filter date
+
+
+class PromptsAndMemoryMixin(SearchAndFilterMixin):
     target_dir: str
     history_path: str
     analysis_path: str
