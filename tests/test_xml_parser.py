@@ -1,4 +1,4 @@
-from pyob.apply_xml_mixins import ApplyXMLMixin
+from pyob.xml_mixin import ApplyXMLMixin
 
 
 def test_apply_xml_edits_precision():
