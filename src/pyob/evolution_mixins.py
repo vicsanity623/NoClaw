@@ -6,7 +6,7 @@ import shutil
 import subprocess
 import sys
 import time
-from typing import Callable
+from typing import Callable, Any
 
 from .core_utils import logger
 
@@ -17,8 +17,8 @@ class EvolutionMixin:
     analysis_path: str
     history_path: str
     symbols_path: str
-    llm_engine: any
-    code_parser: any
+    llm_engine: Any
+    code_parser: Any
     ledger: dict
     key_cooldowns: dict
 
@@ -100,7 +100,14 @@ class EvolutionMixin:
 
             start_time = time.time()
             try:
-                process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=self.target_dir, shell=use_shell)
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    cwd=self.target_dir,
+                    shell=use_shell
+                )
                 if is_html:
                     try:
                         stdout, stderr = process.communicate(timeout=5)
@@ -112,13 +119,18 @@ class EvolutionMixin:
                         return True
                 stdout, stderr = process.communicate(timeout=10)
             except Exception as e:
-                logger.error(f"Execution failed: {e}"); stdout, stderr = "", str(e)
+                logger.error(f"Execution failed: {e}")
+                stdout, stderr = "", str(e)
+
             duration = time.time() - start_time
-            has_error = any(kw in stderr or kw in stdout for kw in ["Traceback", "Exception", "Error:", "ModuleNotFoundError", "ImportError"])
+            has_error = any(
+                kw in stderr or kw in stdout
+                for kw in ["Traceback", "Exception", "Error:", "ModuleNotFoundError", "ImportError"]
+            )
             if process.returncode not in (0, 15, -15, None) or has_error:
                 logger.warning(f"App crashed after {duration:.1f}s!")
-                if attempt < 2: self.llm_engine._fix_runtime_errors(
-                    stderr + "\n" + stdout, entry_file)
+                if attempt < 2:
+                    self.llm_engine._fix_runtime_errors(stderr + "\n" + stdout, entry_file)
             else:
                 logger.info(f"App ran successfully for {duration:.1f}s.")
                 return True
@@ -142,7 +154,14 @@ class EvolutionMixin:
                 if match:
                     last_file = match.group(1)
                     break
-        prompt = f"Choose ONE relative file path to review next based on ANALYSIS.md/HISTORY.md.\nSTRATEGIC RULES:\n1. DO NOT pick `{last_file}`.\n2. Rotate between logic, UI, and styles.\nOutput ONLY the path.\n\n### Analysis:\n{analysis}\n### History:\n{history}"
+
+        prompt = (
+            f"Choose ONE relative file path to review next based on ANALYSIS.md/HISTORY.md.\n"
+            f"STRATEGIC RULES:\n1. DO NOT pick `{last_file}`.\n"
+            f"2. Rotate between logic, UI, and styles.\nOutput ONLY the path.\n\n"
+            f"### Analysis:\n{analysis}\n### History:\n{history}"
+        )
+
         def val(text: str) -> bool:
             path = getattr(self, "_extract_path_from_llm_response")(text)
             return os.path.exists(os.path.join(self.target_dir, path)) and path != last_file
@@ -155,25 +174,42 @@ class EvolutionMixin:
         logger.info("ANALYSIS.md not found. Bootstrapping Deep Symbolic Scan...")
         all_files = sorted(self.llm_engine.scan_directory())
         struct_map = "\n".join(os.path.relpath(f, self.target_dir) for f in all_files)
-        p_summary = getattr(self, "get_valid_llm_response")(f"Write a 2-sentence summary of this project: {struct_map}", lambda t: len(t) > 5, context="Project Genesis").strip()
+
+        p_summary = getattr(self, "get_valid_llm_response")(
+            f"Write a 2-sentence summary of this project: {struct_map}",
+            lambda t: len(t) > 5,
+            context="Project Genesis"
+        ).strip()
         content = f"# Project Analysis\n\n**Project Summary:**\n{p_summary}\n\n---\n\n## File Directory\n\n"
+
         file_structures = {}
         for f_path in all_files:
             rel = os.path.relpath(f_path, self.target_dir)
             with open(f_path, "r", encoding="utf-8", errors="ignore") as f:
                 code = f.read()
-                    self.update_ledger_for_file(rel, code)
-                        file_structures[rel] = self.code_parser.generate_structure_dropdowns(f_path, code)
+            self.update_ledger_for_file(rel, code)
+            file_structures[rel] = self.code_parser.generate_structure_dropdowns(f_path, code)
 
-        batch_prompt = "Output 'filepath: summary' for each:\n" + "\n".join(f"{r}: {s}" for r, s in file_structures.items())
-        batch_resp = getattr(self, "get_valid_llm_response")(batch_prompt, lambda t: ":" in t, context="Batch Genesis").strip()
+        batch_prompt = (
+            "Output 'filepath: summary' for each:\n" +
+            "\n".join(f"{r}: {s}" for r, s in file_structures.items())
+        )
+        batch_resp = getattr(self, "get_valid_llm_response")(
+            batch_prompt,
+            lambda t: ":" in t,
+            context="Batch Genesis"
+        ).strip()
 
-        summaries = {line.split(":", 1)[0].strip("`* "):
-        line.split(":", 1)[1].strip() for line in batch_resp.splitlines() if ":" in line}
+        summaries = {
+            line.split(":", 1)[0].strip("`* "): line.split(":", 1)[1].strip()
+            for line in batch_resp.splitlines() if ":" in line
+        }
 
         for f_path in all_files:
             rel = os.path.relpath(f_path, self.target_dir)
-            content += f"### `{rel}`\n**Summary:** {summaries.get(rel, 'No summary.')}\n\n{file_structures[rel]}\n---\n"
+            summary_text = summaries.get(rel, "No summary.")
+            content += f"### `{rel}`\n**Summary:** {summary_text}\n\n{file_structures[rel]}\n---\n"
 
-        with open(self.analysis_path, "w", encoding="utf-8") as f: f.write(content)
+        with open(self.analysis_path, "w", encoding="utf-8") as f:
+            f.write(content)
         self.save_ledger()
