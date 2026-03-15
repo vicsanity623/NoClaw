@@ -24,6 +24,13 @@ def analysis():
         return jsonify({"success": True, "data": analysis_content})
     except FileNotFoundError:
         return jsonify({"success": False, "message": "Analysis not available"}), 404
+    except UnicodeDecodeError:
+        return jsonify(
+            {
+                "success": False,
+                "message": "Error reading analysis content due to encoding issue",
+            }
+        ), 500
 
 
 @app.route("/history")
