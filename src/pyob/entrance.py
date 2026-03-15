@@ -71,9 +71,11 @@ class EntranceController(EntranceMixin, CoreUtilsMixin, EvolutionMixin):
     ENGINE_FILES = [
         "apply_xml_mixins.py",
         "autoreviewer.py",
+        "cascade_queue_handler.py",
         "core_utils.py",
         "dashboard_html.py",
         "dashboard_server.py",
+        "data_parser.py",
         "entrance.py",
         "entrance_mixins.py",
         "evolution_mixins.py",
@@ -86,8 +88,8 @@ class EntranceController(EntranceMixin, CoreUtilsMixin, EvolutionMixin):
         "reviewer_mixins.py",
         "scanner_mixins.py",
         "get_valid_edit.py",
+        "stats_updater.py",
         "targeted_reviewer.py",
-        "evolution_mixins.py",
     ]
 
     def __init__(self, target_dir: str, dashboard_active: bool = True):
