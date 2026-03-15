@@ -301,11 +301,11 @@ def get_valid_llm_response_engine(
         # --- ERROR HANDLING BLOCK ---
         if not response_text or response_text.startswith("ERROR_CODE_"):
             # 1. Handle Gemini 429 (Minute limits)
+            # Increased cooldown to 180s to ensure the sliding window reset
             if key and response_text and "429" in response_text:
-                key_cooldowns[key] = time.time() + 120
+                key_cooldowns[key] = time.time() + 180
                 logger.warning(f"Key {key[-4:]} rate-limited. Pivoting to next key...")
                 attempts += 1
-                # Immediate pivot attempt for this loop
                 if is_cloud:
                     logger.warning(
                         "Gemini limited. Pivoting to GitHub Models (Llama-3)..."
@@ -322,11 +322,8 @@ def get_valid_llm_response_engine(
                 and "429" in response_text
                 and "RateLimitReached" in response_text
             ):
-                # Extract the wait time from the JSON message
                 match = re.search(r"wait (\d+) seconds", response_text)
                 seconds_to_wait = int(match.group(1)) if match else 86400
-
-                # Determine which GH model failed and cool it down
                 if "Llama-3" in response_text or "llama" in response_text.lower():
                     key_cooldowns["github_llama"] = time.time() + seconds_to_wait + 60
                     logger.error(
@@ -343,9 +340,8 @@ def get_valid_llm_response_engine(
                 not response_text or response_text.startswith("ERROR_CODE_")
             ):
                 if response_text and "413" in response_text:
-                    pass  # Too large, don't pivot
+                    pass
                 else:
-                    # If we haven't already tried Phi-4 this loop
                     logger.warning(
                         "Model failed or limited. Pivoting to GitHub Models (Phi-4)..."
                     )
@@ -356,19 +352,18 @@ def get_valid_llm_response_engine(
             # 4. Final Catch-All / Fail-Safe Sleep
             if not response_text or response_text.startswith("ERROR_CODE_"):
                 if key and "429" not in (response_text or ""):
-                    key_cooldowns[key] = (
-                        time.time() + 10
-                    )  # Short cooldown for unknown errors prevent tight loops
+                    key_cooldowns[key] = time.time() + 30  # Anti-machine-gun delay
 
                 if available_keys:
                     logger.warning(
                         f"Engine failed with error: {str(response_text)[:60]}... Rotating..."
                     )
                     attempts += 1
-                    time.sleep(2)
+                    time.sleep(5)
                     continue
 
-                wait = 90
+                # Increased from 90s to 120s for total refill
+                wait = 120
                 logger.warning(
                     f"All Engines failed or exhausted. Sleeping {wait}s for refill..."
                 )
@@ -391,7 +386,8 @@ def get_valid_llm_response_engine(
             if validator(clean_text):
                 return clean_text
 
-            wait = 60 if is_cloud else 5
+            # Increased from 60s to 120s for invalid response backoff
+            wait = 120 if is_cloud else 5
             logger.warning(f"Response invalid. Backing off {wait}s...")
             time.sleep(wait)
             attempts += 1
