@@ -227,7 +227,7 @@ class ApplyXMLMixin:
         for i in range(len(code_lines) - len(search_lines_stripped) + 1):
             match = True
             for j, sline in enumerate(search_lines_stripped):
-                if sline not in code_lines[i + j].strip():
+                if sline != code_lines[i + j].strip():
                     match = False
                     break
             if match:
