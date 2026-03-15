@@ -61,8 +61,12 @@ def api_history_data():
 
 
 def read_file(filename):
-    with open(filename, "r", encoding="utf-8") as f:
-        return f.read()
+    try:
+        with open(filename, "r", encoding="utf-8") as f:
+            return f.read()
+    except UnicodeDecodeError as e:
+        logger.error(f"Error reading file {filename}: {e}")
+        raise
 
 
 def run_server():
