@@ -10,6 +10,16 @@ class ObserverHandler(BaseHTTPRequestHandler):
     # The 'controller' type is 'Any' to avoid circular dependencies with the main application controller.
     controller: Any = None
 
+    def _send_json_response(
+        self, status_code: int, payload: dict, allow_cors: bool = True
+    ):
+        self.send_response(status_code)
+        self.send_header("Content-type", "application/json")
+        if allow_cors:
+            self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(json.dumps(payload).encode())
+
     def _send_controller_not_initialized_error(self):
         self.send_response(503)  # Service Unavailable
         self.send_header("Content-type", "application/json")
