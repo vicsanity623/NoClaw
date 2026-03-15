@@ -91,6 +91,7 @@ class EntranceController(EntranceMixin, CoreUtilsMixin):
         self.target_dir = os.path.abspath(target_dir)
         self.pyob_dir = os.path.join(self.target_dir, ".pyob")
         os.makedirs(self.pyob_dir, exist_ok=True)
+        self.key_cooldowns: dict[str, float] = {}
         self.skip_dashboard = ("--no-dashboard" in sys.argv) or (not dashboard_active)
 
         self.analysis_path = os.path.join(self.pyob_dir, "ANALYSIS.md")
