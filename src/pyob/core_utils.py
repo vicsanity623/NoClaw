@@ -157,7 +157,8 @@ class CoreUtilsMixin:
                     r"^```json\s*|\s*```$", "", response.strip(), flags=re.MULTILINE
                 )
 
-            data = json.loads(clean_json)
+            data = json.loads(clean_json, strict=False)
+
             if isinstance(data, dict):
                 return data
 
