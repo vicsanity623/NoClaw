@@ -51,7 +51,6 @@ def history():
         ), 500
 
 
-@app.route("/api/analysis-data")
 @app.route("/api/analysis/issues/<string:issue_id>/acknowledge", methods=["POST"])
 def acknowledge_issue(issue_id):
     """
