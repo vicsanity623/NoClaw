@@ -111,6 +111,15 @@ OBSERVER_HTML = """
         </div>
     </div>
 
+<!-- New Diff Modal HTML -->
+<div id="diffModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.8);">
+    <div style="background-color: var(--card); margin: 10% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 900px; border-radius: 8px; position: relative;">
+        <span onclick="closeDiffModal()" style="color: var(--dim); float: right; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
+        <h2 style="color: var(--accent); font-family: 'JetBrains Mono'; margin-bottom: 15px;">Patch Diff <span id="diffModalPatchId"></span></h2>
+        <pre id="diffContent" class="data-box" style="height: 400px; white-space: pre-wrap; word-wrap: break-word;"></pre>
+    </div>
+</div>
+
     <script>
         async function updateStats() {
             try {
@@ -136,14 +145,36 @@ OBSERVER_HTML = """
                     data.cascade_queue.forEach((item, index) => {
                         const itemElement = document.createElement('div');
                         itemElement.className = 'queue-item';
-                        itemElement.innerHTML = `
-                            <span style="flex-grow: 1;">${item}</span>
-                            <div style="display: flex; gap: 5px;">
-                                <button class="move-btn" onclick="moveQueueItem(decodeURIComponent('${encodeURIComponent(item)}'), 'up')">&#x25B2;</button>
-                                <button class="move-btn" onclick="moveQueueItem(decodeURIComponent('${encodeURIComponent(item)}'), 'down')">&#x25BC;</button>
-                                <button class="remove-btn" onclick="removeQueueItem(decodeURIComponent('${encodeURIComponent(item)}'))">X</button>
-                            </div>
-                        `;
+
+                        const textSpan = document.createElement('span');
+                        textSpan.style.flexGrow = '1';
+                        textSpan.innerText = item; // Use innerText for safety
+
+                        const buttonDiv = document.createElement('div');
+                        buttonDiv.style.display = 'flex';
+                        buttonDiv.style.gap = '5px';
+
+                        const moveUpBtn = document.createElement('button');
+                        moveUpBtn.className = 'move-btn';
+                        moveUpBtn.innerHTML = '&#x25B2;';
+                        moveUpBtn.onclick = () => moveQueueItem(item, 'up');
+
+                        const moveDownBtn = document.createElement('button');
+                        moveDownBtn.className = 'move-btn';
+                        moveDownBtn.innerHTML = '&#x25BC;';
+                        moveDownBtn.onclick = () => moveQueueItem(item, 'down');
+
+                        const removeBtn = document.createElement('button');
+                        removeBtn.className = 'remove-btn';
+                        removeBtn.innerHTML = 'X';
+                        removeBtn.onclick = () => removeQueueItem(item);
+
+                        buttonDiv.appendChild(moveUpBtn);
+                        buttonDiv.appendChild(moveDownBtn);
+                        buttonDiv.appendChild(removeBtn);
+
+                        itemElement.appendChild(textSpan);
+                        itemElement.appendChild(buttonDiv);
                         queueDiv.appendChild(itemElement);
                     });
                 } else {
@@ -180,9 +211,10 @@ OBSERVER_HTML = """
                             <span style="color: var(--accent); font-weight: 700;">Patch ID: ${patch.id}</span><br>
                             <span style="font-size: 0.8em; color: var(--dim);">File: ${patch.target_file}</span><br>
                             <span style="font-size: 0.8em; color: var(--dim);">Description: ${patch.description || 'N/A'}</span><br>
-<button onclick="reviewPatch('${patch.id}', 'approve')" style="width: 32%; margin-right: 2%; background: #00cc66; color: #000;">APPROVE</button>
-            <button onclick="reviewPatch('${patch.id}', 'approved')" style="width: 32%; margin-right: 2%; background: #00cc00; color: #000;">APPROVED</button>
-            <button onclick="reviewPatch('${patch.id}', 'reject')" style="width: 32%; background: #cc0000; color: #fff;">REJECT</button>
+<button onclick="viewPatchDiff('${patch.id}')" style="width: 23%; margin-right: 2%; background: #007bff; color: #fff;">VIEW DIFF</button>
+<button onclick="reviewPatch('${patch.id}', 'approve')" style="width: 23%; margin-right: 2%; background: #00cc66; color: #000;">APPROVE</button>
+<button onclick="reviewPatch('${patch.id}', 'approved')" style="width: 23%; margin-right: 2%; background: #00cc00; color: #000;">APPROVED</button>
+<button onclick="reviewPatch('${patch.id}', 'reject')" style="width: 23%; background: #cc0000; color: #fff;">REJECT</button>
                         `;
                         patchesDiv.appendChild(patchElement);
                     });
@@ -277,6 +309,32 @@ OBSERVER_HTML = """
                 console.error(`Failed to remove item ${itemId}:`, e);
             }
         }
+
+        // New JavaScript functions
+
+    async function viewPatchDiff(patchId) {
+        try {
+            const response = await fetch(`/api/patch_diff/${patchId}`);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const data = await response.json();
+            document.getElementById('diffModalPatchId').innerText = `(ID: ${patchId})`;
+            document.getElementById('diffContent').innerText = data.diff || "No diff available.";
+            openDiffModal();
+        } catch (e) {
+            console.error(`Failed to fetch diff for patch ${patchId}:`, e);
+            alert(`Error viewing diff: ${e.message}`);
+        }
+    }
+
+    function openDiffModal() {
+        document.getElementById('diffModal').style.display = 'block';
+    }
+
+    function closeDiffModal() {
+        document.getElementById('diffModal').style.display = 'none';
+        document.getElementById('diffContent').innerText = ''; // Clear content on close
+        document.getElementById('diffModalPatchId').innerText = '';
+    }
 
         setInterval(updateStats, 3000);
         updateStats();
