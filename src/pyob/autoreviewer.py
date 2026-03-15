@@ -118,8 +118,7 @@ class AutoReviewer(
             pass
         try:
             res = subprocess.run(["mypy", filepath], capture_output=True, text=True)
-            if res.returncode != 0:
-                mypy_out = res.stdout.strip()
+            mypy_out = res.stdout.strip()
         except FileNotFoundError:
             pass
         return ruff_out, mypy_out
@@ -155,6 +154,75 @@ class AutoReviewer(
                 custom_issues_section=custom_issues_section,
             )
         )
+
+    def _handle_pending_proposals(
+        self, prompt_message: str, allow_delete: bool
+    ) -> bool:
+        """
+        Handles user approval for pending PR/feature files, applies them,
+        manages rollback on failure, or deletes them.
+        Returns True if proposals were successfully applied or deleted,
+        False if skipped or failed to apply.
+        """
+        if not (os.path.exists(self.pr_file) or os.path.exists(self.feature_file)):
+            return False  # No proposals to process
+
+        # Construct full prompt message
+        full_prompt = prompt_message
+        if allow_delete:
+            full_prompt += ", or 'DELETE' to discard"
+
+        user_input = self.get_user_approval(full_prompt, timeout=220)
+
+        if user_input == "PROCEED":
+            backup_state = self.backup_workspace()
+            success = True
+            if os.path.exists(self.pr_file):
+                with open(self.pr_file, "r", encoding="utf-8") as f:
+                    if not self.implement_pr(f.read()):
+                        success = False
+            if success and os.path.exists(self.feature_file):
+                with open(self.feature_file, "r", encoding="utf-8") as f:
+                    if not self.implement_feature(f.read()):
+                        success = False
+            if not success:
+                self.restore_workspace(backup_state)
+                logger.warning("Rollback performed due to unfixable errors.")
+                self.session_context.append(
+                    "CRITICAL: The last refactor/feature attempt FAILED and was ROLLED BACK. "
+                    "The files on disk have NOT changed. Check FAILED_FEATURE.md for error logs."
+                )
+
+                failure_report = f"\n\n### FAILURE ATTEMPT LOGS ({time.strftime('%Y-%m-%d %H:%M:%S')})\n"
+                failure_report += "\n".join(self.session_context[-3:])
+
+                if os.path.exists(self.pr_file):
+                    with open(self.pr_file, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    with open(self.failed_pr_file, "w") as f:
+                        f.write(content + failure_report)
+                    os.remove(self.pr_file)
+
+                if os.path.exists(self.feature_file):
+                    with open(self.feature_file, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    with open(self.failed_feature_file, "w") as f:
+                        f.write(content + failure_report)
+                    os.remove(self.feature_file)
+                return False  # Failed to apply, proposals still conceptually pending for next run
+            return True  # Successfully applied
+        elif allow_delete and user_input == "DELETE":
+            if os.path.exists(self.pr_file):
+                os.remove(self.pr_file)
+            if os.path.exists(self.feature_file):
+                os.remove(self.feature_file)
+            logger.info("Deleted pending proposal files. Starting fresh scan...")
+            return True  # Deleted, no longer pending
+        else:  # SKIP or other input
+            logger.info(
+                "Changes not applied manually. They will remain for the next loop iteration."
+            )
+            return False  # Skipped, proposals still pending
 
     def run_pipeline(self, current_iteration: int):
         changes_made = False
@@ -249,48 +317,12 @@ class AutoReviewer(
                 if os.path.exists(self.pr_file) or os.path.exists(self.feature_file):
                     print("\n" + "=" * 50)
                     print(" ACTION REQUIRED: Proposals Generated")
-                    user_input = self.get_user_approval(
-                        "Hit ENTER to PROCEED, or type 'SKIP' to cancel", timeout=220
+                    # Use the extracted helper for handling newly generated proposals.
+                    # No 'DELETE' option for newly generated proposals, only PROCEED or SKIP.
+                    self._handle_pending_proposals(
+                        "Hit ENTER to PROCEED, or type 'SKIP' to cancel",
+                        allow_delete=False,
                     )
-                    if user_input == "PROCEED":
-                        backup_state = self.backup_workspace()
-                        success = True
-                        if os.path.exists(self.pr_file):
-                            with open(self.pr_file, "r", encoding="utf-8") as f:
-                                if not self.implement_pr(f.read()):
-                                    success = False
-                        if success and os.path.exists(self.feature_file):
-                            with open(self.feature_file, "r", encoding="utf-8") as f:
-                                if not self.implement_feature(f.read()):
-                                    success = False
-                        if not success:
-                            self.restore_workspace(backup_state)
-                            logger.warning(
-                                " Rollback performed due to unfixable errors."
-                            )
-
-                            failure_report = f"\n\n###  FAILURE ATTEMPT LOGS ({time.strftime('%Y-%m-%d %H:%M:%S')})\n"
-                            failure_report += "\n".join(self.session_context[-3:])
-
-                            if os.path.exists(self.pr_file):
-                                with open(self.pr_file, "r", encoding="utf-8") as f:
-                                    content = f.read()
-                                with open(self.failed_pr_file, "w") as f:
-                                    f.write(content + failure_report)
-                                os.remove(self.pr_file)
-
-                            if os.path.exists(self.feature_file):
-                                with open(
-                                    self.feature_file, "r", encoding="utf-8"
-                                ) as f:
-                                    content = f.read()
-                                with open(self.failed_feature_file, "w") as f:
-                                    f.write(content + failure_report)
-                                os.remove(self.feature_file)
-                    else:
-                        logger.info(
-                            "Changes not applied manually. They will remain for the next loop iteration."
-                        )
                 else:
                     logger.info("\nNo issues found, no features proposed.")
         finally:
