@@ -2,7 +2,7 @@ import re
 
 
 class DataParser:
-    def parse_analysis_content(self, content):
+    def parse_analysis_content(self, content: str) -> dict:
         # Implement logic to parse the analysis content into structured data
         data = []
         for line in content.splitlines():
