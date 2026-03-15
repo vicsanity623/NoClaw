@@ -20,8 +20,7 @@ def index():
 @app.route("/analysis")
 def analysis():
     try:
-        with open("ANALYSIS.md", "r", encoding="utf-8") as f:
-            analysis_content = f.read()
+        analysis_content = read_file("ANALYSIS.md")
         return jsonify({"success": True, "data": analysis_content})
     except FileNotFoundError:
         return jsonify({"success": False, "message": "Analysis not available"}), 404
@@ -64,12 +63,6 @@ def api_history_data():
 def read_file(filename):
     with open(filename, "r", encoding="utf-8") as f:
         return f.read()
-
-
-# [Logic moved to data_parser module]
-
-
-# [Logic moved to data_parser module]
 
 
 def run_server():
