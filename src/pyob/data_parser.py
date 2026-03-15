@@ -1,5 +1,6 @@
 import re
 
+
 class DataParser:
     def parse_analysis_content(self, content):
         # Implement logic to parse the analysis content into structured data
