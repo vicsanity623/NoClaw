@@ -90,6 +90,7 @@ class EntranceController(EntranceMixin, CoreUtilsMixin, EvolutionMixin):
         "get_valid_edit.py",
         "stats_updater.py",
         "targeted_reviewer.py",
+        "xml_mixin.py",
     ]
 
     def __init__(self, target_dir: str, dashboard_active: bool = True):
