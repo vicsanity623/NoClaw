@@ -349,11 +349,11 @@ class CoreUtilsMixin:
         """Wrapper that ensures key rotation is used for all requests."""
         return str(
             get_valid_llm_response_engine(
-                prompt, 
-                validator, 
+                prompt,
+                validator,
                 GEMINI_API_KEYS,  # THE FIX: Explicitly pass the list of 8 keys
-                self.key_cooldowns, 
-                context
+                self.key_cooldowns,
+                context,
             )
         )
 
