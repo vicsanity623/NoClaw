@@ -12,6 +12,7 @@ from pyob.data_parser import DataParser
 app = Flask(__name__)
 
 logger = logging.getLogger(__name__)
+data_parser_instance = DataParser()  # Initialize DataParser once globally
 
 
 @app.route("/")
