@@ -70,7 +70,7 @@ only experienced developrs can make sense of it!
 
 because AI didnt build this shit!
 
-I DOD!
+I DID!
 
 and show me a fuckin AI model out that can evolve and upgrade and fix and clean any project including itself and submit summarized pull requests that only edits blocks not entire files and has a map of all interconnected files so it can properly update the outdated files.
 
