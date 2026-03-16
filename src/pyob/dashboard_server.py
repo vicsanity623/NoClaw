@@ -92,8 +92,7 @@ def api_analysis_data():
     """
     try:
         analysis_content = read_file("ANALYSIS.md")
-        data_parser = DataParser()
-        parsed_data = data_parser.parse_analysis_content(analysis_content)
+        parsed_data = data_parser_instance.parse_analysis_content(analysis_content)
 
         issue_statuses = {}
         status_file = "issue_statuses.json"
