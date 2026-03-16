@@ -6,7 +6,7 @@ class DataParser:
         # Implement logic to parse the analysis content into structured data
         data = []
         for line in content.splitlines():
-            match = re.search(r"(\w+): (\d+)", line)
+            match = re.search(r"(\w+)\s*:\s*(\d+)", line)
             if match:
                 data.append({"key": match.group(1), "value": int(match.group(2))})
         return {"data": data}
