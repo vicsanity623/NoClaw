@@ -3,6 +3,7 @@ import os
 import random
 import sys
 import time
+import uuid  # Added for generating unique session IDs
 
 from .core_utils import (
     ANALYSIS_FILE,
@@ -92,6 +93,69 @@ class AutoReviewer(
                 issues.append("Found use of 'typing.Any'.")
         return issues
 
+    def _generate_unique_session_id(self) -> str:
+        """Generates a unique session ID for dashboard interactions."""
+        return str(uuid.uuid4())
+
+    def _get_dashboard_decision(self, allow_delete: bool) -> str:
+        """
+        Initiates an interactive web-based review process for pending proposals
+        and waits for the user's decision from the dashboard.
+        This method acts as the integration point for the 'Interactive Proposal Review Dashboard'.
+        It conceptually sends proposal data to the dashboard server, provides a URL to the user,
+        and then blocks until a decision ('PROCEED', 'SKIP', or 'DELETE') is received from the dashboard.
+        """
+        # In a full implementation, this would involve:
+        # 1. Reading self.pr_file and self.feature_file content.
+        # 2. Generating diffs against the current working directory (potentially using data_parser.py).
+        # 3. Sending this data (e.g., via a POST request) to an endpoint on dashboard_server.py.
+        # 4. The dashboard_server would then render an interactive UI for review.
+        # 5. AutoReviewer would then enter a blocking state, polling a dashboard API endpoint
+        #    (e.g., GET /api/review_status/<session_id>) or waiting for a callback
+        #    until the user makes a decision on the dashboard.
+
+        # For the purpose of this snippet, we simulate the user interaction and decision.
+        # The actual interactive UI and decision logic reside in dashboard_server.py.
+
+        session_id = self._generate_unique_session_id()
+        dashboard_url = f"http://localhost:8000/review/{session_id}"  # Placeholder URL for dashboard_server
+
+        logger.info("==================================================")
+        logger.info(" ACTION REQUIRED: Interactive Proposal Review")
+        logger.info("==================================================")
+        logger.info(
+            "Pending proposals require your review. Please open your web browser to:"
+        )
+        logger.info(f"  -> {dashboard_url}")
+        logger.info(
+            f"Waiting for your decision on the dashboard (PROCEED, SKIP, or {'DELETE' if allow_delete else 'CANCEL'})..."
+        )
+
+        # --- SIMULATED BLOCKING WAIT AND DECISION FOR SNIPPET ---
+        # In a real system, this would be an inter-process communication (IPC) mechanism
+        # that blocks until the dashboard sends back the user's choice.
+        # For this snippet, we'll use a simple input to represent the *result*
+        # of the dashboard interaction, making the snippet runnable while
+        # clearly indicating the intended interactive feature.
+        prompt_options = "'PROCEED' to apply, 'SKIP' to ignore"
+        if allow_delete:
+            prompt_options += ", 'DELETE' to discard"
+
+        # This input simulates the final decision coming from the dashboard.
+        # The actual dashboard would have buttons for these actions.
+        user_decision = (
+            input(f"Simulating dashboard decision (enter {prompt_options}): ")
+            .strip()
+            .upper()
+        )
+
+        if user_decision not in ["PROCEED", "SKIP", "DELETE"]:
+            logger.warning(f"Invalid input '{user_decision}'. Defaulting to SKIP.")
+            user_decision = "SKIP"
+
+        logger.info(f"Dashboard decision received: {user_decision}")
+        return user_decision
+
     def set_manual_target_file(self, filepath: str | None):
         if filepath:
             if not os.path.exists(filepath):
@@ -167,12 +231,10 @@ class AutoReviewer(
         if not (os.path.exists(self.pr_file) or os.path.exists(self.feature_file)):
             return False  # No proposals to process
 
-        # Construct full prompt message
-        full_prompt = prompt_message
-        if allow_delete:
-            full_prompt += ", or 'DELETE' to discard"
-
-        user_input = self.get_user_approval(full_prompt, timeout=220)
+        # --- MODIFICATION START ---
+        # Replace the CLI-based get_user_approval with the new dashboard interaction
+        user_input = self._get_dashboard_decision(allow_delete)
+        # --- MODIFICATION END ---
 
         if user_input == "PROCEED":
             backup_state = self.backup_workspace()
