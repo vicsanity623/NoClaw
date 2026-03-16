@@ -10,6 +10,7 @@ class TargetedReviewer(AutoReviewer, ApplyXMLMixin):
         self.forced_target_file = target_file
 
     def scan_directory(self) -> list[str]:
-        if os.path.exists(self.forced_target_file):
-            return [self.forced_target_file]
+        full_target_path = os.path.join(self.target_dir, self.forced_target_file)
+        if os.path.exists(full_target_path):
+            return [full_target_path]
         return []
