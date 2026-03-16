@@ -104,7 +104,7 @@ class AutoReviewer(
         """
         import os
         import sys
-        
+
         # --- THE FIX: Headless Auto-Approval ---
         # If we are running in GitHub Actions or a non-interactive terminal,
         # we cannot wait for keyboard input. We must auto-approve to keep the loop alive.
@@ -114,7 +114,9 @@ class AutoReviewer(
             or "GITHUB_RUN_ID" in os.environ
         )
         if is_cloud or not sys.stdin.isatty():
-            logger.info("Headless environment detected: Auto-approving dashboard proposal.")
+            logger.info(
+                "Headless environment detected: Auto-approving dashboard proposal."
+            )
             return "PROCEED"
 
         session_id = self._generate_unique_session_id()
@@ -145,9 +147,11 @@ class AutoReviewer(
             if user_decision not in ["PROCEED", "SKIP", "DELETE"]:
                 logger.warning(f"Invalid input '{user_decision}'. Defaulting to SKIP.")
                 user_decision = "SKIP"
-                
+
         except EOFError:
-            logger.warning("EOFError caught during input. Auto-approving to prevent crash.")
+            logger.warning(
+                "EOFError caught during input. Auto-approving to prevent crash."
+            )
             user_decision = "PROCEED"
 
         logger.info(f"Dashboard decision received: {user_decision}")
