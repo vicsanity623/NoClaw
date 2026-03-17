@@ -180,7 +180,7 @@ class FeatureOperationsMixin:
 
                     subprocess.run(["git", "add", new_path_abs], cwd=self.target_dir)
                     created_files.append(new_path_abs)
-                except Exception as e:
+                except OSError as e:
                     logger.error(f"Failed to create new module {new_path_rel}: {e}")
 
         exp_match = re.search(
