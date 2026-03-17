@@ -357,7 +357,7 @@ class EntranceController(EntranceMixin, CoreUtilsMixin, EvolutionMixin):
         cleaned_text = re.sub(r"[`\"*]", "", text).strip()
 
         matches = re.findall(r"[\w\.\-/]+\.(?:py|js|ts|html|css|json|md)", cleaned_text)
-        
+
         base_dir = str(getattr(self, "target_dir", "."))
 
         for match in matches:
@@ -369,10 +369,12 @@ class EntranceController(EntranceMixin, CoreUtilsMixin, EvolutionMixin):
             parts = cleaned_text.split()
             for part in parts:
                 clean_part = part.rstrip(".,;:'\")")
-                if "/" in clean_part or clean_part.endswith((".py", ".js", ".ts", ".html", ".css")):
+                if "/" in clean_part or clean_part.endswith(
+                    (".py", ".js", ".ts", ".html", ".css")
+                ):
                     return clean_part
             return parts[0].rstrip(".,;:'\")")
-            
+
         return cleaned_text
 
     def _run_git_command(self, cmd: list[str]) -> bool:
