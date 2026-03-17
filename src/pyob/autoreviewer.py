@@ -1,6 +1,7 @@
 import ast
 import os
 import random
+import subprocess  # Moved from run_linters
 import sys
 import time
 import uuid  # Added for generating unique session IDs
@@ -102,8 +103,7 @@ class AutoReviewer(
         Initiates an interactive web-based review process for pending proposals
         and waits for the user's decision from the dashboard.
         """
-        import os
-        import sys
+        # os and sys are already imported at the top level.
 
         # --- THE FIX: Headless Auto-Approval ---
         # If we are running in GitHub Actions or a non-interactive terminal,
@@ -172,7 +172,6 @@ class AutoReviewer(
             logger.info("Manual target file cleared. Reverting to directory scan.")
 
     def run_linters(self, filepath: str) -> tuple[str, str]:
-        import subprocess
 
         ruff_out, mypy_out = "", ""
         try:
