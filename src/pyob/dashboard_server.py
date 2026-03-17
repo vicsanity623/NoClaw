@@ -3,6 +3,7 @@ import logging
 import os
 import signal
 import sys
+import threading
 from datetime import datetime
 
 from flask import Flask, jsonify, render_template
@@ -12,6 +13,7 @@ from pyob.data_parser import DataParser
 app = Flask(__name__)
 
 logger = logging.getLogger(__name__)
+status_lock = threading.Lock()  # Initialize a lock for issue_statuses.json
 data_parser_instance = DataParser()  # Initialize DataParser once globally
 
 
@@ -61,9 +63,10 @@ def acknowledge_issue(issue_id):
     try:
         status_file = "issue_statuses.json"
         issue_statuses = {}
-        if os.path.exists(status_file):
-            with open(status_file, "r", encoding="utf-8") as f:
-                issue_statuses = json.load(f)
+        with status_lock:  # Acquire lock before reading/writing shared resource
+            if os.path.exists(status_file):
+                with open(status_file, "r", encoding="utf-8") as f:
+                    issue_statuses = json.load(f)
 
         # Update status for the given issue_id
         issue_statuses[issue_id] = {
