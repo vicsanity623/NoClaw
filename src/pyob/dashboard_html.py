@@ -140,21 +140,6 @@ OBSERVER_HTML = """
 
                 // The acknowledgeIssue function is now defined globally below updateStats.
                 // No local definition needed here.
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ status: 'acknowledged' })
-                        });
-                        if (response.ok) {
-                            await updateStats(); // Refresh dashboard to show updated status
-                        } else {
-                            console.error(`Failed to acknowledge issue ${issueId}:`, await response.text());
-                            alert('Error acknowledging issue.');
-                        }
-                    } catch (e) {
-                        console.error(`Failed to acknowledge issue ${issueId}:`, e);
-                        alert('Network error acknowledging issue.');
-                    }
-                }
 
                 if (Array.isArray(data.analysis) && data.analysis.length > 0) {
                     data.analysis.forEach(issue => {
