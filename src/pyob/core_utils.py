@@ -6,10 +6,8 @@ import select
 import shutil
 import subprocess
 import sys
-import termios
 import textwrap
 import time
-import tty
 from typing import Callable, Optional
 
 from .models import (
@@ -230,6 +228,9 @@ class CoreUtilsMixin:
                         input_str += char
                 time.sleep(0.1)
         else:
+            import termios
+            import tty
+
             fd = sys.stdin.fileno()
             old_settings = termios.tcgetattr(fd)
             try:
