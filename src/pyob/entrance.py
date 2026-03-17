@@ -354,28 +354,28 @@ class EntranceController(EntranceMixin, CoreUtilsMixin, EvolutionMixin):
 
     def _extract_path_from_llm_response(self, text: str) -> str:
         """Extracts a clean relative file path from a conversational LLM response."""
-        cleaned_text = re.sub(r"[`\"*]", "", text).strip()
+        cleaned_text = str(re.sub(r"[`\"*]", "", text).strip())
 
         matches = re.findall(r"[\w\.\-/]+\.(?:py|js|ts|html|css|json|md)", cleaned_text)
 
         base_dir = str(getattr(self, "target_dir", "."))
 
         for match in matches:
-            clean_match = match.rstrip(".,;:'\")")
+            clean_match = str(match).rstrip(".,;:'\")")
             if os.path.exists(os.path.join(base_dir, clean_match)):
-                return clean_match
+                return str(clean_match)
 
         if " " in cleaned_text:
             parts = cleaned_text.split()
             for part in parts:
-                clean_part = part.rstrip(".,;:'\")")
+                clean_part = str(part).rstrip(".,;:'\")")
                 if "/" in clean_part or clean_part.endswith(
                     (".py", ".js", ".ts", ".html", ".css")
                 ):
-                    return clean_part
-            return parts[0].rstrip(".,;:'\")")
+                    return str(clean_part)
+            return str(parts[0].rstrip(".,;:'\")"))
 
-        return cleaned_text
+        return str(cleaned_text)
 
     def _run_git_command(self, cmd: list[str]) -> bool:
         """Helper to run git commands safely."""
