@@ -63,20 +63,20 @@ def acknowledge_issue(issue_id):
     try:
         status_file = "issue_statuses.json"
         issue_statuses = {}
-        with status_lock:  # Acquire lock before reading/writing shared resource
+        with status_lock:  # Acquire lock for the entire read-modify-write operation
             if os.path.exists(status_file):
                 with open(status_file, "r", encoding="utf-8") as f:
                     issue_statuses = json.load(f)
 
-        # Update status for the given issue_id
-        issue_statuses[issue_id] = {
-            "status": "acknowledged",
-            "timestamp": datetime.now().isoformat(),
-        }
+            # Update status for the given issue_id
+            issue_statuses[issue_id] = {
+                "status": "acknowledged",
+                "timestamp": datetime.now().isoformat(),
+            }
 
-        # Save updated statuses
-        with open(status_file, "w", encoding="utf-8") as f:
-            json.dump(issue_statuses, f, indent=4)
+            # Save updated statuses
+            with open(status_file, "w", encoding="utf-8") as f:
+                json.dump(issue_statuses, f, indent=4)
 
         logger.info(f"Issue {issue_id} acknowledged by user.")
         return jsonify({"success": True, "message": f"Issue {issue_id} acknowledged."})
