@@ -130,7 +130,7 @@ class AutoReviewer(
         )
         logger.info(f"  -> {dashboard_url}")
         logger.info(
-            f"Waiting for your decision on the dashboard (PROCEED, SKIP, or {'DELETE' if allow_delete else 'CANCEL'})..."
+            f"Please open your web browser to the URL above for context. Decision will be taken via CLI (PROCEED, SKIP, or {'DELETE' if allow_delete else 'CANCEL'})..."
         )
 
         prompt_options = "'PROCEED' to apply, 'SKIP' to ignore"
