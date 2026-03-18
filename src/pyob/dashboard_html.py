@@ -166,7 +166,7 @@ OBSERVER_HTML = """
                                            background: ${issue.status === 'acknowledged' ? '#4a4a50' : 'var(--accent)'};
                                            color: ${issue.status === 'acknowledged' ? 'var(--text)' : '#000'};"
                                     ${issue.status === 'acknowledged' ? 'disabled' : ''}>
-                                ${issue.status === 'acknowledged' ? 'ACKNOWLEDGE'}
+                                ${issue.status === 'acknowledged' ? 'ACKNOWLEDGED' : 'ACKNOWLEDGE'}
                             </button>
                         `;
                         analysisContainer.appendChild(issueElement);
