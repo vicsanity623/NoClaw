@@ -273,11 +273,12 @@ class ValidationMixin:
                     req_path = os.path.join(
                         getattr(self, "target_dir"), "requirements.txt"
                     )
-                    subprocess.run(
-                        f'"{python_cmd}" -m pip freeze > "{req_path}"',
-                        shell=True,
-                        check=True,
-                    )
+                    with open(req_path, "w", encoding="utf-8") as f_req:
+                        subprocess.run(
+                            [python_cmd, "-m", "pip", "freeze"],
+                            stdout=f_req,
+                            check=True,
+                        )
                     logger.info("Auto-locked dependencies in requirements.txt")
                 except Exception as e:
                     logger.warning(f"Failed to lock dependencies: {e}")
