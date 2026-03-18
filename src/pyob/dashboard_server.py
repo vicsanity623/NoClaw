@@ -99,9 +99,10 @@ def api_analysis_data():
 
         issue_statuses = {}
         status_file = "issue_statuses.json"
-        if os.path.exists(status_file):
-            with open(status_file, "r", encoding="utf-8") as f:
-                issue_statuses = json.load(f)
+        with status_lock:  # Acquire lock before reading shared resource
+            if os.path.exists(status_file):
+                with open(status_file, "r", encoding="utf-8") as f:
+                    issue_statuses = json.load(f)
 
         # Merge statuses into parsed_data.
         # This logic assumes parsed_data is a dictionary with an 'issues' key,
