@@ -35,6 +35,9 @@ class AutoReviewer(
     GetValidEditMixin,
 ):
     _shared_cooldowns: dict[str, float] | None = None
+    DASHBOARD_BASE_URL: str = os.environ.get(
+        "PYOB_DASHBOARD_URL", "http://localhost:8000"
+    )
 
     def __init__(self, target_dir: str):
         self.target_dir = os.path.abspath(target_dir)
