@@ -12,6 +12,7 @@ dependencies = [
     "requests",
     "charset-normalizer",
     "chardet",
+    "flask",
     "ollama",
     "ruff",
     "mypy",
