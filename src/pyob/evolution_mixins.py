@@ -49,11 +49,13 @@ class EvolutionMixin:
         branch_name = f"pyob-evolution-v{iteration}-{timestamp}"
         logger.info(f" LIBRARIAN: Publishing Evolution: {title}")
 
-        if not getattr(self, "_run_git_command")(["git", "checkout", "-b", branch_name]):
+        if not getattr(self, "_run_git_command")(
+            ["git", "checkout", "-b", branch_name]
+        ):
             return
-        
+
         getattr(self, "_run_git_command")(["git", "add", rel_path])
-        
+
         # Use AI-generated title as commit message
         if not getattr(self, "_run_git_command")(["git", "commit", "-m", title]):
             return
@@ -61,7 +63,9 @@ class EvolutionMixin:
         # 4. Push to GitHub and create the PR
         if shutil.which("gh"):
             logger.info("Pushing to GitHub and opening Pull Request...")
-            if getattr(self, "_run_git_command")(["git", "push", "origin", branch_name]):
+            if getattr(self, "_run_git_command")(
+                ["git", "push", "origin", branch_name]
+            ):
                 getattr(self, "_run_git_command")(
                     [
                         "gh",
@@ -79,7 +83,9 @@ class EvolutionMixin:
                 # Increment the session counter only after successful PR creation
                 if hasattr(self, "session_pr_count"):
                     self.session_pr_count += 1
-                    logger.info(f"Session Progress: {self.session_pr_count}/8 PRs completed.")
+                    logger.info(
+                        f"Session Progress: {self.session_pr_count}/8 PRs completed."
+                    )
                 # --------------------------
         else:
             logger.warning("GitHub CLI (gh) not found. Committed locally only.")
@@ -264,9 +270,9 @@ class EvolutionMixin:
     def wrap_up_evolution_session(self):
         """Generates a master summary of the entire session and opens a final PR."""
         logger.info("🎬 INITIATING WRAP-UP PHASE: Generating session summary...")
-        
+
         history_text = getattr(self, "_read_file")(self.history_path)
-        
+
         prompt = f"""
         Analyze the following evolution history for this session and write a 'Master Session Summary'.
         We have successfully submitted {self.session_pr_count} Pull Requests.
@@ -287,21 +293,29 @@ class EvolutionMixin:
         summary_path = os.path.join(self.target_dir, "PR_SUMMARY.md")
         with open(summary_path, "w", encoding="utf-8") as f:
             f.write(summary_md)
-            
+
         # Create a final branch for the summary
         branch_name = f"evolution-summary-{int(time.time())}"
         self._run_git_command(["git", "checkout", "-b", branch_name])
         self._run_git_command(["git", "add", "PR_SUMMARY.md"])
-        self._run_git_command(["git", "commit", "-m", "Final: Evolution Session Summary Report"])
-        
+        self._run_git_command(
+            ["git", "commit", "-m", "Final: Evolution Session Summary Report"]
+        )
+
         if shutil.which("gh"):
             self._run_git_command(["git", "push", "origin", branch_name])
-            self._run_git_command([
-                "gh", "pr", "create",
-                "--title", f"🏆 Final Evolution Summary: {self.session_pr_count} PRs Completed",
-                "--body", "This PR contains the architectural summary for the entire autonomous run. PyOB has completed its assigned tasks and is now entering sleep mode.",
-                "--base", "main"
-            ])
-            
-        logger.info("✅ Final summary submitted. PyOB is now resting.")
+            self._run_git_command(
+                [
+                    "gh",
+                    "pr",
+                    "create",
+                    "--title",
+                    f"🏆 Final Evolution Summary: {self.session_pr_count} PRs Completed",
+                    "--body",
+                    "This PR contains the architectural summary for the entire autonomous run. PyOB has completed its assigned tasks and is now entering sleep mode.",
+                    "--base",
+                    "main",
+                ]
+            )
 
+        logger.info("✅ Final summary submitted. PyOB is now resting.")
