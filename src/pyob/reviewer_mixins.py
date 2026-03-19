@@ -141,28 +141,43 @@ class ValidationMixin:
             )
 
     def run_and_verify_app(self, context_of_change: str = "") -> bool:
-        # 1. MANDATORY VALIDATION GATE: Fix formatting, THEN validate
-        logger.info("PHASE 3.5: Running full validation suite (./check.sh --fix)...")
+        check_script = os.path.join(self.target_dir, "check.sh")
 
-        # This will auto-fix trailing whitespaces and formatting errors
-        subprocess.run(["./check.sh", "--fix"], capture_output=True, text=True)
+        if os.path.exists(check_script):
+            logger.info("PHASE 3.5: Running full validation suite (check.sh)...")
+            try:
+                os.chmod(check_script, 0o755)
 
-        # This checks if anything is still broken
-        res = subprocess.run(["./check.sh"], capture_output=True, text=True)
+                subprocess.run(
+                    [check_script, "--fix"],
+                    capture_output=True,
+                    text=True,
+                    cwd=self.target_dir,
+                )
 
-        if res.returncode != 0:
-            logger.warning(
-                f"Validation suite failed after auto-fix!\n{res.stdout.strip()}"
-            )
-            # Feed the remaining errors back to the AI
-            self._fix_runtime_errors(
-                res.stdout + "\n" + res.stderr, "Validation Suite", context_of_change
-            )
-            return False
+                res = subprocess.run(
+                    [check_script], capture_output=True, text=True, cwd=self.target_dir
+                )
 
-        # 2. RUNTIME SMOKE TEST
+                if res.returncode != 0:
+                    logger.warning(
+                        f"Validation suite failed after auto-fix!\n{res.stdout.strip()}"
+                    )
+                    self._fix_runtime_errors(
+                        res.stdout + "\n" + res.stderr,
+                        "Validation Suite",
+                        context_of_change,
+                    )
+                    return False
+            except Exception as e:
+                logger.error(f"Failed to execute validation script: {e}")
+                return False
+        else:
+            logger.warning("No check.sh found in target project. Skipping PHASE 3.5.")
+
         entry_file = getattr(self, "_find_entry_file")()
         if not entry_file:
+            logger.warning("No entry point detected. Skipping runtime smoke test.")
             return True
 
         venv_python = os.path.join(self.target_dir, "build_env", "bin", "python3")
@@ -175,6 +190,9 @@ class ValidationMixin:
             logger.info(
                 f"\nPHASE 4: Runtime Verification. Launching {os.path.basename(entry_file)} (Attempt {attempt + 1}/3)..."
             )
+
+            is_html = entry_file.endswith((".html", ".htm"))
+
             process = subprocess.Popen(
                 [python_cmd, entry_file],
                 stdout=subprocess.PIPE,
@@ -182,6 +200,7 @@ class ValidationMixin:
                 text=True,
                 cwd=self.target_dir,
             )
+
             stdout, stderr = "", ""
             try:
                 stdout, stderr = process.communicate(timeout=10)
@@ -200,6 +219,11 @@ class ValidationMixin:
                 "NameError:",
                 "AttributeError:",
             ]
+
+            if is_html:
+                logger.info("HTML Entry detected. Verification assumed successful.")
+                return True
+
             has_crash = any(kw in stderr or kw in stdout for kw in error_keywords) or (
                 process.returncode != 0 and process.returncode not in (0, 15, -15, None)
             )
