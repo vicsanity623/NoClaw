@@ -337,13 +337,32 @@ class CoreUtilsMixin:
         logger.warning("Workspace restored to safety due to unfixable AI errors.")
 
     def load_memory(self) -> str:
+        """Loads persistent memory and injects repo-level human directives."""
+        memory_content = ""
+
         if os.path.exists(self.memory_path):
             try:
                 with open(self.memory_path, "r", encoding="utf-8") as f:
-                    return f.read().strip()
+                    memory_content = f.read().strip()
             except Exception:
                 pass
-        return ""
+
+        directives_path = os.path.join(self.target_dir, "DIRECTIVES.md")
+        if os.path.exists(directives_path):
+            try:
+                with open(directives_path, "r", encoding="utf-8") as f:
+                    human_orders = f.read().strip()
+                    if human_orders:
+                        memory_content = (
+                            f"# HUMAN DIRECTIVES (PRIORITY)\n"
+                            f"{human_orders}\n\n"
+                            f"---\n\n"
+                            f"{memory_content}"
+                        )
+            except Exception as e:
+                logger.warning(f"Librarian could not read DIRECTIVES.md: {e}")
+
+        return memory_content
 
     def get_valid_llm_response(
         self, prompt: str, validator: Callable[[str], bool], context: str = ""
