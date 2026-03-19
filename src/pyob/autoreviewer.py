@@ -209,9 +209,6 @@ class AutoReviewer(
 
         logger.info(f"Dashboard decision received: {decision}")
         return decision
-
-        # --- THE FIX: Headless Auto-Approval ---
-        # If we are running in GitHub Actions or a non-interactive terminal,
         # we cannot wait for keyboard input. We must auto-approve to keep the loop alive.
         is_cloud = (
             os.environ.get("GITHUB_ACTIONS") == "true"
