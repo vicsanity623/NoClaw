@@ -6,6 +6,8 @@ import sys
 import time
 import uuid  # Added for generating unique session IDs
 
+import requests  # Added for dashboard polling
+
 from .core_utils import (
     ANALYSIS_FILE,
     FAILED_FEATURE_FILE_NAME,
@@ -105,8 +107,108 @@ class AutoReviewer(
         """
         Initiates an interactive web-based review process for pending proposals
         and waits for the user's decision from the dashboard.
+        The user makes the decision directly on the dashboard UI.
         """
-        # os and sys are already imported at the top level.
+        is_cloud = (
+            os.environ.get("GITHUB_ACTIONS") == "true"
+            or os.environ.get("CI") == "true"
+            or "GITHUB_RUN_ID" in os.environ
+        )
+        if is_cloud or not sys.stdin.isatty():
+            logger.info(
+                "Headless environment detected: Auto-approving dashboard proposal."
+            )
+            return "PROCEED"
+
+        session_id = self._generate_unique_session_id()
+        dashboard_url = f"{self.DASHBOARD_BASE_URL}/review/{session_id}"
+        decision_api_url = f"{self.DASHBOARD_BASE_URL}/api/decision/{session_id}"
+
+        logger.info("==================================================")
+        logger.info(" ACTION REQUIRED: Interactive Proposal Review")
+        logger.info("==================================================")
+        logger.info(
+            "Pending proposals require your review. Please open your web browser to:"
+        )
+        logger.info(f"  -> {dashboard_url}")
+        logger.info(
+            "Waiting for your decision from the dashboard (PROCEED, SKIP, or DELETE)..."
+        )
+
+        decision = None
+        poll_interval_seconds = 2
+        max_retries = 3  # For connection errors before falling back to CLI
+
+        retries = 0
+        while decision is None:
+            try:
+                # Poll the dashboard for a decision
+                response = requests.get(decision_api_url, timeout=5)
+                response.raise_for_status()  # Raise an exception for HTTP errors (4xx or 5xx)
+                data = response.json()
+                if data.get("decision"):
+                    decision = data["decision"].upper()
+                    if decision not in ["PROCEED", "SKIP"] and (
+                        not allow_delete or decision != "DELETE"
+                    ):
+                        logger.warning(
+                            f"Invalid or disallowed decision '{decision}' received from dashboard. Defaulting to SKIP."
+                        )
+                        decision = "SKIP"
+                else:
+                    time.sleep(poll_interval_seconds)
+                retries = 0  # Reset retries on successful connection
+            except requests.exceptions.ConnectionError as e:
+                retries += 1
+                logger.error(
+                    f"Could not connect to dashboard server at {self.DASHBOARD_BASE_URL}. (Attempt {retries}/{max_retries}) Error: {e}"
+                )
+                if retries >= max_retries:
+                    logger.info(
+                        "Max connection retries reached. Falling back to CLI input for decision."
+                    )
+                    break  # Exit polling loop to fallback
+                time.sleep(
+                    poll_interval_seconds * 2
+                )  # Longer wait for connection issues
+            except requests.exceptions.Timeout:
+                logger.debug("Dashboard decision poll timed out, retrying...")
+                time.sleep(poll_interval_seconds)
+            except requests.exceptions.RequestException as e:
+                logger.error(
+                    f"An HTTP request error occurred while polling dashboard: {e}"
+                )
+                time.sleep(poll_interval_seconds)
+            except Exception as e:
+                logger.error(
+                    f"An unexpected error occurred while polling dashboard: {e}"
+                )
+                time.sleep(poll_interval_seconds)
+
+        # Fallback to CLI input if dashboard is unreachable or polling failed
+        if decision is None:
+            prompt_options = "'PROCEED' to apply, 'SKIP' to ignore"
+            if allow_delete:
+                prompt_options += ", 'DELETE' to discard"
+            try:
+                user_decision = input(f"Enter {prompt_options}: ").strip().upper()
+                if user_decision not in ["PROCEED", "SKIP"] and (
+                    not allow_delete or user_decision != "DELETE"
+                ):
+                    logger.warning(
+                        f"Invalid input '{user_decision}'. Defaulting to SKIP."
+                    )
+                    decision = "SKIP"
+                else:
+                    decision = user_decision
+            except EOFError:
+                logger.warning(
+                    "EOFError caught during input. Auto-approving to prevent crash."
+                )
+                decision = "PROCEED"
+
+        logger.info(f"Dashboard decision received: {decision}")
+        return decision
 
         # --- THE FIX: Headless Auto-Approval ---
         # If we are running in GitHub Actions or a non-interactive terminal,
