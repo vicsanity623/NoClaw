@@ -193,6 +193,11 @@ def api_analysis_data():
                 "message": "Error parsing analysis content due to encoding issue",
             }
         ), 500
+    except Exception as e:
+        logger.error(f"Error processing analysis data: {e}")
+        return jsonify(
+            {"success": False, "message": f"Error processing analysis data: {e}"}
+        ), 500
 
 
 @app.route("/api/history-data")
