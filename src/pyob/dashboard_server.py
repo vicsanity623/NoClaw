@@ -73,6 +73,8 @@ def acknowledge_issue(issue_id):
                 "status": "acknowledged",
                 "timestamp": datetime.now().isoformat(),
             }
+            with open(status_file, "w", encoding="utf-8") as f:
+                json.dump(issue_statuses, f, indent=4)
 
         logger.info(f"Issue {issue_id} acknowledged by user.")
         return jsonify({"success": True, "message": f"Issue {issue_id} acknowledged."})
