@@ -360,13 +360,15 @@ class EntranceController(EntranceMixin, CoreUtilsMixin, EvolutionMixin):
                 # --- THE WRAP-UP GATE ---
                 # session_pr_count is incremented in handle_git_librarian.
                 # If we hit the goal and have no pending cross-file tasks, we sign off.
-                if getattr(self, "session_pr_count", 0) >= 8 and not getattr(self, "cascade_queue", []):
+                if getattr(self, "session_pr_count", 0) >= 8 and not getattr(
+                    self, "cascade_queue", []
+                ):
                     logger.info(
                         f"🏆 SESSION COMPLETE: {self.session_pr_count} PRs achieved with no pending cascades."
                     )
                     if hasattr(self, "wrap_up_evolution_session"):
                         self.wrap_up_evolution_session()
-                    break # Graceful exit from the 6-hour loop
+                    break  # Graceful exit from the 6-hour loop
                 # ------------------------
 
             except KeyboardInterrupt:
