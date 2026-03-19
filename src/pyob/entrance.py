@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import time
+from subprocess import DEVNULL
 from typing import Optional
 
 _current_file_dir = os.path.dirname(os.path.abspath(__file__))
@@ -140,8 +141,8 @@ class EntranceController(EntranceMixin, CoreUtilsMixin, EvolutionMixin):
             self.dashboard_process = subprocess.Popen(
                 [sys.executable, "-m", "pyob.dashboard_server"],
                 cwd=self.target_dir,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=DEVNULL,
+                stderr=DEVNULL,
                 text=True,
                 env=env,
             )
