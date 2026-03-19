@@ -138,11 +138,16 @@ OBSERVER_HTML = """
                 // Handle structured analysis data for interactive issues
                 const analysisContainer = document.getElementById('analysis');
                 analysisContainer.innerHTML = ''; // Clear existing content
+                const filterText = document.getElementById('analysisFilter').value.toLowerCase();
 
                 // The acknowledgeIssue function is now defined globally below updateStats.
                 // No local definition needed here.
 
                 if (Array.isArray(data.analysis) && data.analysis.length > 0) {
+                    const filteredAnalysis = data.analysis.filter(issue =>
+                        issue.description.toLowerCase().includes(filterText)
+                    );
+                    filteredAnalysis.forEach(issue => {
                     data.analysis.forEach(issue => {
                         const issueElement = document.createElement('div');
                         issueElement.style.marginBottom = '8px';
