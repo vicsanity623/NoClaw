@@ -150,15 +150,8 @@ def api_history_data():
 
 
 def read_file(filename):
-    try:
-        with open(filename, "r", encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError as e:
-        logger.error(f"File not found: {filename}: {e}")
-        raise
-    except UnicodeDecodeError as e:
-        logger.error(f"Error reading file {filename}: {e}")
-        raise
+    with open(filename, "r", encoding="utf-8") as f:
+        return f.read()
 
 
 def run_server():
