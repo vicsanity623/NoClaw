@@ -355,14 +355,14 @@ class EntranceController(EntranceMixin, CoreUtilsMixin, EvolutionMixin):
 
     def _extract_path_from_llm_response(self, text: str) -> str:
         """Extracts a clean relative file path from a conversational LLM response."""
-        cleaned_text = str(re.sub(r"[`\"*]", "", text).strip())
+        cleaned_text = re.sub(r"[`\"*]", "", text).strip()
 
         matches = re.findall(r"[\w\.\-/]+\.(?:py|js|ts|html|css|json|md)", cleaned_text)
 
-        base_dir = str(getattr(self, "target_dir", "."))
+        base_dir = self.target_dir
 
         for match in matches:
-            clean_match = str(match).rstrip(".,;:'\")")
+            clean_match = match.rstrip(".,;:'\")")
             if os.path.exists(os.path.join(base_dir, clean_match)):
                 return str(clean_match)
 
