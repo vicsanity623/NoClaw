@@ -196,7 +196,7 @@ OBSERVER_HTML = """
                         const moveUpBtn = document.createElement('button');
                         moveUpBtn.className = 'move-btn';
                         moveUpBtn.innerHTML = '&#x25B2;';
-                        moveUpBtn.onclick = () => moveQueueItem(item, 'up');
+                        moveUpBtn.addEventListener('click', () => moveQueueItem(item, 'up'));
 
                         const moveDownBtn = document.createElement('button');
                         moveDownBtn.className = 'move-btn';
@@ -269,9 +269,9 @@ OBSERVER_HTML = """
                             <span style="color: var(--accent); font-weight: 700;">Patch ID: ${patch.id}</span><br>
                             <span class="patch-file" style="font-size: 0.8em; color: var(--dim);">File: ${patch.file || 'N/A'}</span><br>
                             <span class="patch-description" style="font-size: 0.8em; color: var(--dim);">Description: ${patch.description || 'No description'}</span><br>
-<button onclick="viewPatchDiff('${patch.id}')" style="width: 31%; margin-right: 2%; background: #007bff; color: #fff;">VIEW DIFF</button>
-<button onclick="reviewPatch('${patch.id}', 'approved')" style="width: 31%; margin-right: 2%; background: #00cc00; color: #000;">APPROVE</button>
-<button onclick="reviewPatch('${patch.id}', 'reject')" style="width: 23%; background: #cc0000; color: #fff;">REJECT</button>
+<button onclick="viewPatchDiff('${patch.id}')" style="width: 32%; margin-right: 2%; background: #007bff; color: #fff;">VIEW DIFF</button>
+<button onclick="reviewPatch('${patch.id}', 'approved')" style="width: 32%; margin-right: 2%; background: #00cc00; color: #000;">APPROVE</button>
+<button onclick="reviewPatch('${patch.id}', 'reject')" style="width: 32%; background: #cc0000; color: #fff;">REJECT</button>
                         `;
                         patchesDiv.appendChild(patchElement);
                     });
