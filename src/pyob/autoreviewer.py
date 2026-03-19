@@ -256,7 +256,11 @@ class AutoReviewer(
                 )
 
                 failure_report = f"\n\n### FAILURE ATTEMPT LOGS ({time.strftime('%Y-%m-%d %H:%M:%S')})\n"
-                failure_report += "\n".join(self.session_context[-3:])
+                # Ensure the most recent critical message is always included
+                failure_report += self.session_context[-1]
+                # Add up to two preceding context messages if available
+                if len(self.session_context) > 1:
+                    failure_report += "\n" + "\n".join(self.session_context[-3:-1])
 
                 if os.path.exists(self.pr_file):
                     with open(self.pr_file, "r", encoding="utf-8") as f:
