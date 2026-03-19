@@ -89,6 +89,7 @@ OBSERVER_HTML = """
         </div>
         <div class="card" style="grid-column: span 2;">
             <div class="label">Architectural Analysis</div>
+            <input type="text" id="analysisFilter" placeholder="Filter issues by description..." onkeyup="updateStats()">
             <div id="analysis" class="data-box" style="height: 350px;">Scanning structure...</div>
         </div>
         <div class="card" style="grid-column: span 2;">
@@ -354,7 +355,7 @@ OBSERVER_HTML = """
         }
 
         async function removeQueueItem(itemId) {
-            if (!confirm(`Are you sure you want to remove "${itemId}" from the queue?`)) return;
+            if (!confirm(`Are you sure you want to remove "${itemId.replace(/"/g, '\\"')}" from the queue?`)) return;
             try {
                 await fetch('/api/cascade_queue/remove', {
                     method: 'POST',
