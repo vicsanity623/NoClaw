@@ -12,7 +12,6 @@ from typing import Any
 
 from .dashboard_html import OBSERVER_HTML
 from .pyob_dashboard import ObserverHandler
-from .targeted_reviewer import TargetedReviewer
 
 logger = logging.getLogger(__name__)
 
@@ -173,11 +172,10 @@ class EntranceMixin:
         Orchestrates a single targeted evolution step.
         Preserves engine safety pods and manages symbolic ripples.
         """
-        from pathlib import Path
-        
+
         backup_state = self.llm_engine.backup_workspace()
         target_diff = ""
-        
+
         if self.cascade_queue:
             target_rel_path = self.cascade_queue.pop(0)
             target_diff = self.cascade_diffs.get(target_rel_path, "")
@@ -213,7 +211,7 @@ class EntranceMixin:
                 logger.error(f"Failed to create external safety pod: {e}")
 
         target_abs_path = os.path.join(self.target_dir, target_rel_path)
-        
+
         # --- PREPARE REVIEWER ---
         self.llm_engine.session_context = []
         if is_cascade and target_diff:
@@ -231,13 +229,14 @@ class EntranceMixin:
 
         # Initialize the reviewer with the same state as the controller
         from pyob.targeted_reviewer import TargetedReviewer
+
         reviewer = TargetedReviewer(self.target_dir, target_abs_path)
-        
+
         # SYNC STATE: Ensure reviewer uses the same memory and cooldowns
         reviewer.session_context = self.llm_engine.session_context[:]
-        if hasattr(self, 'key_cooldowns'):
+        if hasattr(self, "key_cooldowns"):
             reviewer.key_cooldowns = self.key_cooldowns
-        if hasattr(self, 'session_pr_count'):
+        if hasattr(self, "session_pr_count"):
             reviewer.session_pr_count = self.session_pr_count
 
         # Execute the reviewer pipeline
@@ -245,7 +244,7 @@ class EntranceMixin:
 
         # Sync context back after review
         self.llm_engine.session_context = reviewer.session_context[:]
-        if hasattr(reviewer, 'session_pr_count'):
+        if hasattr(reviewer, "session_pr_count"):
             self.session_pr_count = reviewer.session_pr_count
 
         # Capture the results of the edit
@@ -256,9 +255,9 @@ class EntranceMixin:
 
         # Update symbolic maps immediately
         logger.info(f"Refreshing metadata for `{target_rel_path}`...")
-        if hasattr(self, 'update_analysis_for_single_file'):
+        if hasattr(self, "update_analysis_for_single_file"):
             self.update_analysis_for_single_file(target_abs_path, target_rel_path)
-        if hasattr(self, 'update_ledger_for_file'):
+        if hasattr(self, "update_ledger_for_file"):
             self.update_ledger_for_file(target_rel_path, new_content)
 
         # --- FINAL VERIFICATION GATE ---
@@ -289,7 +288,7 @@ class EntranceMixin:
                         self.cascade_diffs[r] = current_diff
 
             logger.info("\n" + "=" * 20 + " FINAL VERIFICATION " + "=" * 20)
-            
+
             # THE ABSOLUTE GATE: We only push the PR if the app is stable
             if not self._run_final_verification_and_heal(backup_state):
                 logger.error(
