@@ -351,8 +351,10 @@ class CoreUtilsMixin:
                 with open(directives_path, "r", encoding="utf-8") as f:
                     human_orders = f.read().strip()
                     if human_orders:
-                        logger.info(f"🎯 BEACON ACTIVE: Injected {len(human_orders.splitlines())} lines from DIRECTIVES.md")
-                        
+                        logger.info(
+                            f"🎯 BEACON ACTIVE: Injected {len(human_orders.splitlines())} lines from DIRECTIVES.md"
+                        )
+
                         memory_content = (
                             f"# CRITICAL HUMAN DIRECTIVES - PRIORITY 1\n"
                             f"{human_orders}\n"
