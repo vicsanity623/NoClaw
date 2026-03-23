@@ -55,6 +55,7 @@ IGNORE_DIRS = {
     "node_modules",
     ".vscode",
     ".idea",
+    "tests",
 }
 
 IGNORE_FILES = {
@@ -351,14 +352,18 @@ class CoreUtilsMixin:
                 with open(directives_path, "r", encoding="utf-8") as f:
                     human_orders = f.read().strip()
                     if human_orders:
+                        logger.info(
+                            f"🎯 BEACON ACTIVE: Injected {len(human_orders.splitlines())} lines from DIRECTIVES.md"
+                        )
+
                         memory_content = (
-                            f"# HUMAN DIRECTIVES (PRIORITY)\n"
-                            f"{human_orders}\n\n"
-                            f"---\n\n"
-                            f"{memory_content}"
+                            f"# CRITICAL HUMAN DIRECTIVES - PRIORITY 1\n"
+                            f"{human_orders}\n"
+                            f"\n# END CRITICAL DIRECTIVES\n"
+                            f"---\n{memory_content}"
                         )
             except Exception as e:
-                logger.warning(f"Librarian could not read DIRECTIVES.md: {e}")
+                logger.warning(f"Could not read DIRECTIVES.md: {e}")
 
         return memory_content
 
