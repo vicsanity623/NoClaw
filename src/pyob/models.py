@@ -341,7 +341,7 @@ def get_valid_llm_response_engine(
             # C. Generic Error Handling / Fail-Safe Sleep
             if not available_keys:
                 # If everything is exhausted, take a long nap
-                wait = 120
+                wait = 300
                 logger.warning(
                     f"All API resources exhausted. Sleeping {wait}s for refill..."
                 )
@@ -360,7 +360,7 @@ def get_valid_llm_response_engine(
         if validator(response_text):
             if is_cloud:
                 time.sleep(
-                    5
+                    10
                 )  # Slow down slightly in cloud to prevent 429 machine-gunning
             return response_text
         else:
@@ -380,7 +380,7 @@ def get_valid_llm_response_engine(
                 return clean_text
 
             # If still invalid, back off and retry
-            wait = 120 if is_cloud else 10
+            wait = 300 if is_cloud else 10
             logger.warning(f"AI response failed validation. Backing off {wait}s...")
             time.sleep(wait)
             attempts += 1
