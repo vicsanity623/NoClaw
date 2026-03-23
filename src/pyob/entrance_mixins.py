@@ -82,7 +82,8 @@ class EntranceMixin:
                 pod_path.mkdir(parents=True, exist_ok=True)
                 for f_name in self.ENGINE_FILES:
                     src = os.path.join(self.target_dir, "src", "pyob", f_name)
-                    if os.path.exists(src): shutil.copy(src, str(pod_path))
+                    if os.path.exists(src):
+                        shutil.copy(src, str(pod_path))
             except Exception as e:
                 logger.error(f"Failed to create safety pod: {e}")
 
@@ -100,13 +101,16 @@ class EntranceMixin:
         from pyob.targeted_reviewer import TargetedReviewer
         reviewer = TargetedReviewer(self.target_dir, target_abs_path)
         reviewer.session_context = self.llm_engine.session_context[:]
-        if hasattr(self, 'key_cooldowns'): reviewer.key_cooldowns = self.key_cooldowns
-        if hasattr(self, 'session_pr_count'): reviewer.session_pr_count = self.session_pr_count
+        if hasattr(self, 'key_cooldowns'):
+            reviewer.key_cooldowns = self.key_cooldowns
+        if hasattr(self, 'session_pr_count'):
+            reviewer.session_pr_count = self.session_pr_count
 
         reviewer.run_pipeline(iteration)
 
         self.llm_engine.session_context = reviewer.session_context[:]
-        if hasattr(reviewer, 'session_pr_count'): self.session_pr_count = reviewer.session_pr_count
+        if hasattr(reviewer, 'session_pr_count'):
+            self.session_pr_count = reviewer.session_pr_count
 
         new_content = ""
         if os.path.exists(target_abs_path):
@@ -132,7 +136,8 @@ class EntranceMixin:
                 logger.error("Final verification failed. Changes rolled back.")
             else:
                 self.handle_git_librarian(target_rel_path, iteration)
-                if is_engine_file: self.self_evolved_flag = True
+                if is_engine_file:
+                    self.self_evolved_flag = True
 
             # --- THE FINAL WRAP-UP GATE ---
             if getattr(self, "session_pr_count", 0) >= 8 and not getattr(self, "cascade_queue", []):
