@@ -1,5 +1,4 @@
 import difflib
-import json
 import logging
 import os
 import shutil
@@ -9,11 +8,13 @@ from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class EntranceMixin:
     """
     Mixin providing core iteration logic.
     Attributes are declared here to satisfy strict Mypy checks.
     """
+
     target_dir: str
     pyob_dir: str
     ENGINE_FILES: list[str]
@@ -32,28 +33,42 @@ class EntranceMixin:
 
     def pick_target_file(self) -> str:
         return ""
+
     def _read_file(self, path: str) -> str:
         return ""
+
     def _extract_path_from_llm_response(self, text: str) -> str:
         return ""
-    def get_valid_llm_response(self, p: str, v: Callable[[str], bool], context: str) -> str:
+
+    def get_valid_llm_response(
+        self, p: str, v: Callable[[str], bool], context: str
+    ) -> str:
         return ""
+
     def update_analysis_for_single_file(self, abs_p: str, rel_p: str):
         pass
+
     def update_ledger_for_file(self, rel_p: str, code: str):
         pass
+
     def detect_symbolic_ripples(self, o: str, n: str, p: str) -> list[str]:
         return []
+
     def _run_final_verification_and_heal(self, b: dict) -> bool:
         return False
+
     def handle_git_librarian(self, p: str, i: int):
         pass
+
     def append_to_history(self, p: str, o: str, n: str):
         pass
+
     def wrap_up_evolution_session(self):
         pass
+
     def generate_pr_summary(self, rel_path: str, diff_text: str) -> dict:
         return {}
+
     def execute_targeted_iteration(self, iteration: int):
         """Orchestrates a single targeted evolution step."""
         backup_state = self.llm_engine.backup_workspace()
@@ -62,7 +77,9 @@ class EntranceMixin:
         if self.cascade_queue:
             target_rel_path = self.cascade_queue.pop(0)
             target_diff = self.cascade_diffs.get(target_rel_path, "")
-            logger.warning(f"SYMBOLIC CASCADE: Targeting impacted file: {target_rel_path}")
+            logger.warning(
+                f"SYMBOLIC CASCADE: Targeting impacted file: {target_rel_path}"
+            )
             is_cascade = True
         else:
             target_rel_path = self.pick_target_file()
@@ -99,17 +116,18 @@ class EntranceMixin:
                 old_content = f.read()
 
         from pyob.targeted_reviewer import TargetedReviewer
+
         reviewer = TargetedReviewer(self.target_dir, target_abs_path)
         reviewer.session_context = self.llm_engine.session_context[:]
-        if hasattr(self, 'key_cooldowns'):
+        if hasattr(self, "key_cooldowns"):
             reviewer.key_cooldowns = self.key_cooldowns
-        if hasattr(self, 'session_pr_count'):
+        if hasattr(self, "session_pr_count"):
             reviewer.session_pr_count = self.session_pr_count
 
         reviewer.run_pipeline(iteration)
 
         self.llm_engine.session_context = reviewer.session_context[:]
-        if hasattr(reviewer, 'session_pr_count'):
+        if hasattr(reviewer, "session_pr_count"):
             self.session_pr_count = reviewer.session_pr_count
 
         new_content = ""
@@ -124,8 +142,15 @@ class EntranceMixin:
         if old_content != new_content:
             logger.info(f"Edit successful. Verifying {target_rel_path}...")
             self.append_to_history(target_rel_path, old_content, new_content)
-            current_diff = "".join(difflib.unified_diff(old_content.splitlines(keepends=True), new_content.splitlines(keepends=True)))
-            ripples = self.detect_symbolic_ripples(old_content, new_content, target_rel_path)
+            current_diff = "".join(
+                difflib.unified_diff(
+                    old_content.splitlines(keepends=True),
+                    new_content.splitlines(keepends=True),
+                )
+            )
+            ripples = self.detect_symbolic_ripples(
+                old_content, new_content, target_rel_path
+            )
             if ripples:
                 for r in ripples:
                     if r not in self.cascade_queue:
@@ -140,6 +165,10 @@ class EntranceMixin:
                     self.self_evolved_flag = True
 
             # --- THE FINAL WRAP-UP GATE ---
-            if getattr(self, "session_pr_count", 0) >= 8 and not getattr(self, "cascade_queue", []):
-                logger.info(f"🏆 MISSION ACCOMPLISHED: {self.session_pr_count} PRs achieved.")
+            if getattr(self, "session_pr_count", 0) >= 8 and not getattr(
+                self, "cascade_queue", []
+            ):
+                logger.info(
+                    f"🏆 MISSION ACCOMPLISHED: {self.session_pr_count} PRs achieved."
+                )
                 self.wrap_up_evolution_session()
