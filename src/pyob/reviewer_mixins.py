@@ -244,14 +244,6 @@ class ValidationMixin:
         self, logs: str, entry_file: str, context_of_change: str = ""
     ):
         """Detects crashes. Handles missing packages automatically, otherwise asks AI."""
-
-        # --- 0. SANITIZE TARGET ---
-        # Prevent the bot from hallucinating log headers as filenames
-        if entry_file == "Validation Suite" or "Validation Suite" in entry_file:
-            # Fallback to searching for a real file in the logs or use the project main
-            found_file = getattr(self, "_find_entry_file")()
-            entry_file = found_file if found_file else "main.js"
-
         package_match = re.search(r"ModuleNotFoundError: No module named '(.*?)'", logs)
         if not package_match:
             package_match = re.search(r"ImportError: No module named '(.*?)'", logs)
@@ -320,44 +312,20 @@ class ValidationMixin:
             except subprocess.CalledProcessError as e:
                 logger.error(f"Failed to install {pkg} automatically: {e}")
 
-        # --- 1. SMART FILE IDENTIFICATION ---
-        # Look for Python tracebacks first
         tb_files = re.findall(r'File "([^"]+)"', logs)
-
-        # NEW: Look for JavaScript/HTML filenames if Python search fails
-        if not tb_files:
-            tb_files = re.findall(r"([\w\-/]+\.(?:js|html|css))", logs)
-
         target_file = entry_file
         for f in reversed(tb_files):
-            # Block the "Validation Suite" hallucination here too
-            if "Validation Suite" in f:
-                continue
-
-            abs_f = (
-                os.path.abspath(f)
-                if os.path.isabs(f)
-                else os.path.join(self.target_dir, f)
-            )
-
+            abs_f = os.path.abspath(f)
             if (
                 abs_f.startswith(self.target_dir)
-                and not any(ign in abs_f for ign in getattr(self, "IGNORE_DIRS", []))
+                and not any(ign in abs_f for ign in IGNORE_DIRS)
                 and os.path.exists(abs_f)
             ):
                 target_file = abs_f
                 break
-
-        # Ensure we have a valid path before proceeding
-        if not os.path.exists(target_file):
-            target_file = entry_file
-
         rel_path = os.path.relpath(target_file, self.target_dir)
-
-        # --- 2. LOAD CODE AND PROMPT ---
-        with open(target_file, "r", encoding="utf-8", errors="ignore") as f_obj:
+        with open(target_file, "r", encoding="utf-8") as f_obj:
             code = f_obj.read()
-
         if context_of_change:
             logger.info(
                 f"Applying CONTEXT-AWARE fix for runtime crash in `{rel_path}`..."
@@ -372,8 +340,8 @@ class ValidationMixin:
         else:
             logger.info(f"Applying standard fix for runtime crash in `{rel_path}`...")
             memory_section = (
-                f"### Project Memory / Context:\n{getattr(self, 'memory', '')}\n\n"
-                if getattr(self, "memory", None)
+                f"### Project Memory / Context:\n{self.memory}\n\n"
+                if self.memory
                 else ""
             )
             prompt = getattr(self, "load_prompt")(
@@ -383,12 +351,9 @@ class ValidationMixin:
                 rel_path=rel_path,
                 code=code,
             )
-
-        # --- 3. EXECUTE REPAIR ---
         new_code, explanation, _ = getattr(self, "get_valid_edit")(
             prompt, code, require_edit=True, target_filepath=target_file
         )
-
         if new_code != code:
             with open(target_file, "w", encoding="utf-8") as f_out:
                 f_out.write(new_code)
@@ -396,8 +361,7 @@ class ValidationMixin:
             self.session_context.append(
                 f"Auto-fixed runtime crash in `{rel_path}`: {explanation}"
             )
-            if hasattr(self, "run_linter_fix_loop"):
-                self.run_linter_fix_loop()
+            self.run_linter_fix_loop()
 
     def check_downstream_breakages(self, target_path: str, rel_path: str) -> bool:
         logger.info(
