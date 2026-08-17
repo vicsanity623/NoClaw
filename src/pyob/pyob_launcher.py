@@ -21,7 +21,7 @@ def load_config():
         return {
             "openrouter_key": os.environ.get("PYOB_OPENROUTER_KEY", ""),
             "openrouter_model": os.environ.get(
-                "PYOB_OPENROUTER_MODEL", "deepseek/deepseek-v4-flash"
+                "PYOB_OPENROUTER_MODEL", "openrouter/free"
             ),
             "gemini_keys": os.environ.get("PYOB_GEMINI_KEYS", ""),
             "gemini_model": os.environ.get("PYOB_GEMINI_MODEL", DEFAULT_GEMINI_MODEL),
@@ -37,7 +37,7 @@ def load_config():
                     if "openrouter_key" not in config_data:
                         config_data["openrouter_key"] = ""
                     if "openrouter_model" not in config_data:
-                        config_data["openrouter_model"] = "deepseek/deepseek-v4-flash"
+                        config_data["openrouter_model"] = "openrouter/free"
                     return config_data
         except Exception as e:
             print(f"Warning: Configuration file error ({e}).")
@@ -67,7 +67,7 @@ def load_config():
 
     config = {
         "openrouter_key": or_key,
-        "openrouter_model": "deepseek/deepseek-v4-flash",
+        "openrouter_model": "openrouter/free",
         "gemini_keys": g_keys,
         "gemini_model": g_model,
         "local_model": l_model,
@@ -105,7 +105,7 @@ def main():
     os.environ.setdefault("PYOB_OPENROUTER_KEY", config.get("openrouter_key", ""))
     os.environ.setdefault(
         "PYOB_OPENROUTER_MODEL",
-        config.get("openrouter_model", "deepseek/deepseek-v4-flash"),
+        config.get("openrouter_model", "openrouter/free"),
     )
     os.environ.setdefault("PYOB_GEMINI_KEYS", config.get("gemini_keys", ""))
     os.environ.setdefault(
