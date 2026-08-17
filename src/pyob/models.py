@@ -76,7 +76,7 @@ OPENROUTER_MODELS = list(dict.fromkeys(OPENROUTER_MODELS))
 GEMINI_MODEL = (
     os.environ.get("PYOB_GEMINI_MODEL")
     or config.get("gemini_model")
-    or "gemini-3.1-flash-lite"
+    or "gemini-3.7-flash"
 )
 raw_gemini_keys = os.environ.get("PYOB_GEMINI_KEYS") or config.get("gemini_keys") or ""
 GEMINI_API_KEYS = [k.strip() for k in raw_gemini_keys.split(",") if k.strip()]
