@@ -7,7 +7,7 @@ from pathlib import Path
 
 CONFIG_FILE = Path.home() / ".pyob_config"
 
-DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite"
+DEFAULT_GEMINI_MODEL = "gemini-3.7-flash"
 DEFAULT_LOCAL_MODEL = "llama3.2:3b"
 
 # OBSERVER_PATCH_REVIEW_HTML content has been moved to pyob_dashboard.py
