@@ -63,12 +63,12 @@ OPENROUTER_KEY = os.environ.get("PYOB_OPENROUTER_KEY") or config.get("openrouter
 _user_or_model = (
     os.environ.get("PYOB_OPENROUTER_MODEL")
     or config.get("openrouter_model")
-    or "deepseek/deepseek-v4-flash:free"
+    or "deepseek/deepseek-v4-flash"
 )
 OPENROUTER_MODELS = [
     _user_or_model,
-    "meta-llama/llama-3.3-70b-instruct:free",
-    "qwen/qwen3-next-80b-a3b-instruct:free",
+    "meta-llama/llama-3.3-70b-instruct",
+    "qwen/qwen3-next-80b-a3b-instruct",
     "openrouter/free",
 ]
 OPENROUTER_MODELS = list(dict.fromkeys(OPENROUTER_MODELS))
