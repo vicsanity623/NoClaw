@@ -37,9 +37,7 @@ def load_config():
                     if "openrouter_key" not in config_data:
                         config_data["openrouter_key"] = ""
                     if "openrouter_model" not in config_data:
-                        config_data["openrouter_model"] = (
-                            "deepseek/deepseek-v4-flash"
-                        )
+                        config_data["openrouter_model"] = "deepseek/deepseek-v4-flash"
                     return config_data
         except Exception as e:
             print(f"Warning: Configuration file error ({e}).")
